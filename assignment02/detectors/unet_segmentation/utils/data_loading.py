@@ -8,6 +8,8 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
+from assignment02.preprocessing import preprocess
+
 
 class BasicDataset(Dataset):
     def __init__(self, images_dir: str, masks_dir: str, scale: float = 1.0, mask_suffix: str = ''):
@@ -24,33 +26,6 @@ class BasicDataset(Dataset):
 
     def __len__(self):
         return len(self.ids)
-
-    @classmethod
-    def preprocess(cls, pil_img, scale, is_mask):
-        w, h = pil_img.size
-        newW, newH = int(scale * w), int(scale * h)
-        assert newW > 0 and newH > 0, 'Scale is too small, resized images would have no pixel'
-        if not is_mask and pil_img.mode != "RGB":
-            print("hello wordl")
-            rgbimg = Image.new("RGB", pil_img.size)
-            rgbimg.paste(pil_img)
-            pil_img = rgbimg
-        pil_img = pil_img.resize((newW, newH), resample=Image.NEAREST if is_mask else Image.BICUBIC)
-        img_ndarray = np.asarray(pil_img)
-        
-        # grayscale photo
-        if img_ndarray.ndim == 2 and not is_mask:
-            rgbimg = Image.new("RGB", pil_img.size)
-            rgbimg.paste(pil_img)
-            img_ndarray = np.asarray(rgbimg)
-
-        if not is_mask:
-            img_ndarray = img_ndarray.transpose((2, 0, 1))
-
-        # if not is_mask:
-        img_ndarray = img_ndarray / 255
-
-        return img_ndarray
 
     @classmethod
     def load(cls, filename):
@@ -75,8 +50,8 @@ class BasicDataset(Dataset):
         assert img.size == mask.size, \
             'Image and mask {name} should be the same size, but are {img.size} and {mask.size}'
 
-        img = self.preprocess(img, self.scale, is_mask=False)
-        mask = self.preprocess(mask, self.scale, is_mask=True)
+        img = preprocess.image_equalization(img, self.scale, is_mask=False)
+        mask = preprocess.image_equalization(mask, self.scale, is_mask=True)
 
         return {
             'image': torch.as_tensor(img.copy()).float().contiguous(),

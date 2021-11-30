@@ -4,7 +4,14 @@ import glob
 import os
 from pathlib import Path
 import json
-from preprocessing.preprocess import Preprocess
+
+import torch
+import torch.nn.functional as F
+from PIL import Image
+from torch.utils.data import DataLoader
+
+import preprocessing.preprocess as preprc
+from assignment02.detectors.unet_segmentation.utils.data_loading import BasicDataset
 from metrics.evaluation import Evaluation
 
 class EvaluateAll:
@@ -32,35 +39,49 @@ class EvaluateAll:
 
         im_list = sorted(glob.glob(self.images_path + '/*.png', recursive=True))
         iou_arr = []
-        preprocess = Preprocess()
+        # preprocess = Preprocess()
         eval = Evaluation()
+
+        # 1. Create dataset
+        test_set = BasicDataset(self.images_path, self.annotations_path, 1.0)
+
+        # 2. Create data loader
+        loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
+        test_loader = DataLoader(test_set, shuffle=True, **loader_args)
         
         # Change the following detector and/or add your detectors below
         import detectors.cascade_detector.detector as cascade_detector
         # import detectors.your_super_detector.detector as super_detector
         cascade_detector = cascade_detector.Detector()
-        
 
-        for im_name in im_list:
-            
-            # Read an image
-            img = cv2.imread(im_name)
 
-            # Apply some preprocessing
-            img = preprocess.histogram_equlization_rgb(img) # This one makes VJ worse
-            
-            # Run the detector. It runs a list of all the detected bounding-boxes. In segmentor you only get a mask matrices, but use the iou_compute in the same way.
-            prediction_list = cascade_detector.detect(img)
+        # CUDA device
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        # UNET Segmentation network
+        checkpoint = "detectors/unet_segmentation/checkpoints/checkpoint_epoch5.pth"
+        import detectors.unet_segmentation.unet.unet_model as unet_model
+        unet = unet_model.UNet(n_channels=3, n_classes=2, bilinear=True)
+        unet.load_state_dict(torch.load(checkpoint, map_location=device))
+        unet.to(device=device)
 
-            # Read annotations:
-            annot_name = os.path.join(self.annotations_path, Path(os.path.basename(im_name)).stem) + '.txt'
-            annot_list = self.get_annotations(annot_name)
+        counter = 0
+        for batch in test_loader:
+            images = batch['image']
+            mask_true = batch['mask']
+            images = images.to(device=device, dtype=torch.float32)
+            mask_true = mask_true.to(device=device, dtype=torch.long)
+            # Convert to one-hot
+            mask_true = F.one_hot(mask_true, unet.n_classes).permute(0, 3, 1, 2).float()
 
-            # Only for detection:
-            p, gt = eval.prepare_for_detection(prediction_list, annot_list)
-            
-            iou = eval.iou_compute(p, gt)
+            # Get the UNET result
+            mask_pred = unet.forward(images)
+            mask_pred = F.one_hot(mask_pred.argmax(dim=1), unet.n_classes).permute(0, 3, 1, 2).float()
+
+            # Compare to true mask
+
+            iou = eval.iou_compute(mask_pred.cpu().detach().numpy(), mask_true.cpu().detach().numpy())
             iou_arr.append(iou)
+            counter += 1
 
         miou = np.average(iou_arr)
         print("\n")
