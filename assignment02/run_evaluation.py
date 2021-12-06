@@ -47,7 +47,7 @@ class EvaluateAll:
 
         # 2. Create data loader
         loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
-        test_loader = DataLoader(test_set, shuffle=True, **loader_args)
+        test_loader = DataLoader(test_set, shuffle=False, **loader_args)
         
         # Change the following detector and/or add your detectors below
         import detectors.cascade_detector.detector as cascade_detector
@@ -79,9 +79,13 @@ class EvaluateAll:
 
             # Compare to true mask
 
-            iou = eval.iou_compute(mask_pred.cpu().detach().numpy(), mask_true.cpu().detach().numpy())
+            mask_pred_np = mask_pred.cpu().detach().numpy()
+            mask_true_np = mask_true.cpu().detach().numpy()
+            iou = eval.iou_compute(mask_pred_np[0][1], mask_true_np[0][1])
             iou_arr.append(iou)
             counter += 1
+            print(counter)
+            print(iou)
 
         miou = np.average(iou_arr)
         print("\n")
