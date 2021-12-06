@@ -59,6 +59,32 @@ class BasicDataset(Dataset):
         }
 
 
-class CarvanaDataset(BasicDataset):
-    def __init__(self, images_dir, masks_dir, scale=1):
-        super().__init__(images_dir, masks_dir, scale, mask_suffix='_mask')
+class TransformDataset(BasicDataset):
+    def __init__(self, images_dir, masks_dir, length, scale=1):
+        super().__init__(images_dir, masks_dir, scale)
+        # Resize the ids to meet the specified length
+        self.ids = np.resize(self.ids, length)
+
+    def __getitem__(self, idx):
+        name = self.ids[idx]
+        mask_file = list(self.masks_dir.glob(name + self.mask_suffix + '.*'))
+        img_file = list(self.images_dir.glob(name + '.*'))
+
+        assert len(mask_file) == 1, f'Either no mask or multiple masks found for the ID {name}: {mask_file}'
+        assert len(img_file) == 1, f'Either no image or multiple images found for the ID {name}: {img_file}'
+        mask = self.load(mask_file[0])
+        img = self.load(img_file[0])
+
+        assert img.size == mask.size, \
+            'Image and mask {name} should be the same size, but are {img.size} and {mask.size}'
+
+        img = preprocess.image_equalization(img, self.scale, is_mask=False)
+        mask = preprocess.image_equalization(mask, self.scale, is_mask=True)
+
+        # Use image augmentation
+        img, msk = preprocess.image_augmentation(img, mask)
+
+        return {
+            'image': img.float().contiguous(),
+            'mask': msk.long().contiguous()
+        }
