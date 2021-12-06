@@ -11,13 +11,13 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
-from utils.data_loading import BasicDataset, CarvanaDataset
+from utils.data_loading import BasicDataset, TransformDataset
 from utils.dice_score import dice_loss
 from evaluate import evaluate
 from unet import UNet
 
 dir_img = Path('../../data/ears/train/')
-dir_mask = Path('../../data/ears/annotations/segmentation')
+dir_mask = Path('../../data/ears/annotations/segmentation/train')
 dir_checkpoint = Path('./checkpoints/')
 
 
@@ -34,7 +34,7 @@ def train_net(net,
     # try:
     #     dataset = CarvanaDataset(dir_img, dir_mask, img_scale)
     # except (AssertionError, RuntimeError):
-    dataset = BasicDataset(dir_img, dir_mask, img_scale)
+    dataset = TransformDataset(dir_img, dir_mask, length=1500, scale=img_scale)
 
     # 2. Split into train / validation partitions
     n_val = int(len(dataset) * val_percent)
@@ -42,15 +42,17 @@ def train_net(net,
     train_set, val_set = random_split(dataset, [n_train, n_val], generator=torch.Generator().manual_seed(0))
 
     # 3. Create data loaders
-    loader_args = dict(batch_size=batch_size, num_workers=4, pin_memory=True)
+    loader_args = dict(batch_size=batch_size, num_workers=1, pin_memory=True)
     train_loader = DataLoader(train_set, shuffle=True, **loader_args)
     val_loader = DataLoader(val_set, shuffle=False, drop_last=True, **loader_args)
 
+    betas = (0.9, 0.999)
+    eps = 1e-08
     # (Initialize logging)
-    experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
+    experiment = wandb.init(project='U-Net', resume='allow', entity="min0x")
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
-                                  amp=amp))
+                                  amp=amp, optimizer='ADAM', betas=betas, eps=eps))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -65,8 +67,12 @@ def train_net(net,
     ''')
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
-    optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=2)  # goal: maximize Dice score
+    # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=learning_rate, amsgrad=True,
+                           betas=betas,
+                           eps=eps,
+                           weight_decay=0)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'max', patience=4)  # goal: maximize Dice score
     grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
     criterion = nn.CrossEntropyLoss()
     global_step = 0
@@ -146,11 +152,11 @@ def train_net(net,
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
-    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.00001,
+    parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=5, help='Batch size')
+    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    parser.add_argument('--scale', '-s', type=float, default=0.5, help='Downscaling factor of the images')
+    parser.add_argument('--scale', '-s', type=float, default=1.0, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
