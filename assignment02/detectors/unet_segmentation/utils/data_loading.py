@@ -50,8 +50,16 @@ class BasicDataset(Dataset):
         assert img.size == mask.size, \
             'Image and mask {name} should be the same size, but are {img.size} and {mask.size}'
 
+        # Apply image equalization
         img = preprocess.image_equalization(img, self.scale, is_mask=False)
         mask = preprocess.image_equalization(mask, self.scale, is_mask=True)
+
+        # Apply image preprocessing
+        img = preprocess.histogram_equalization_rgb(img)
+
+        # Transform to np array for further techniques
+        img = preprocess.transform_numpy(img, is_mask=False)
+        mask = preprocess.transform_numpy(mask, is_mask=True)
 
         return {
             'image': torch.as_tensor(img.copy()).float().contiguous(),
@@ -78,8 +86,16 @@ class TransformDataset(BasicDataset):
         assert img.size == mask.size, \
             'Image and mask {name} should be the same size, but are {img.size} and {mask.size}'
 
+        # Apply image equalization
         img = preprocess.image_equalization(img, self.scale, is_mask=False)
         mask = preprocess.image_equalization(mask, self.scale, is_mask=True)
+
+        # Apply image preprocessing
+        img = preprocess.histogram_equalization_rgb(img)
+
+        # Transform to np array for further techniques
+        img = preprocess.transform_numpy(img, is_mask=False)
+        mask = preprocess.transform_numpy(mask, is_mask=True)
 
         # Use image augmentation
         img, msk = preprocess.image_augmentation(img, mask)

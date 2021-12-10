@@ -1,12 +1,28 @@
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 import torchvision as tv
 import torch
 import torchvision.transforms.functional as TF
 
 
+def histogram_equalization_rgb(img):
+    """
+    Equalize the histogram of the PIL image.
+    """
+    # Simple preprocessing using histogram equalization
+    # https://en.wikipedia.org/wiki/Histogram_equalization
+
+    im2 = ImageOps.equalize(img, mask=None)
+
+    return im2
+
+
 def image_equalization(pil_img, scale, is_mask):
+    """
+    Preprocesses the image.
+    Convert image mode to RGB + rescale it if necessary (according to scale)
+    """
     w, h = pil_img.size
     newW, newH = int(scale * w), int(scale * h)
     assert newW > 0 and newH > 0, 'Scale is too small, resized images would have no pixel'
@@ -19,6 +35,13 @@ def image_equalization(pil_img, scale, is_mask):
 
     # Resize image to new size if necessary
     pil_img = pil_img.resize((newW, newH), resample=Image.NEAREST if is_mask else Image.BICUBIC)
+    return pil_img
+
+
+def transform_numpy(pil_img, is_mask):
+    """
+    Transform the PIL image to numpy array. Normalize to [0,1] & convert array structure to fit NN.
+    """
     img_ndarray = np.asarray(pil_img)
 
     # Convert image to fit to neural network dimension structure
@@ -32,6 +55,10 @@ def image_equalization(pil_img, scale, is_mask):
 
 
 def image_augmentation(img, mask):
+    """
+    Apply different Image augmentation techniques (RandomAffine, RandomHorizontal/VerticalFlip, RandomPerspective, RandomRotation)
+    Apply to img & msk simultaneously.
+    """
     image_transformations = tv.transforms.RandomChoice(
         [tv.transforms.RandomAffine([0, 359], fillcolor=None), tv.transforms.RandomHorizontalFlip(p=0.2),
          tv.transforms.RandomPerspective(p=0.2), tv.transforms.RandomRotation(degrees=[0, 359]),
