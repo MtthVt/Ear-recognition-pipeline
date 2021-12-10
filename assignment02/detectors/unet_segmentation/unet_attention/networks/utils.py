@@ -1,16 +1,16 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.networks_other import init_weights
+from ..networks_other import init_weights
 
 
 class conv2DBatchNorm(nn.Module):
-    def __init__(self, in_channels, n_filters, k_size,  stride, padding, bias=True):
+    def __init__(self, in_channels, n_filters, k_size, stride, padding, bias=True):
         super(conv2DBatchNorm, self).__init__()
 
         self.cb_unit = nn.Sequential(nn.Conv2d(int(in_channels), int(n_filters), kernel_size=k_size,
                                                padding=padding, stride=stride, bias=bias),
-                                 nn.BatchNorm2d(int(n_filters)),)
+                                     nn.BatchNorm2d(int(n_filters)), )
 
     def forward(self, inputs):
         outputs = self.cb_unit(inputs)
@@ -18,12 +18,12 @@ class conv2DBatchNorm(nn.Module):
 
 
 class deconv2DBatchNorm(nn.Module):
-    def __init__(self, in_channels, n_filters, k_size,  stride, padding, bias=True):
+    def __init__(self, in_channels, n_filters, k_size, stride, padding, bias=True):
         super(deconv2DBatchNorm, self).__init__()
 
         self.dcb_unit = nn.Sequential(nn.ConvTranspose2d(int(in_channels), int(n_filters), kernel_size=k_size,
-                                               padding=padding, stride=stride, bias=bias),
-                                 nn.BatchNorm2d(int(n_filters)),)
+                                                         padding=padding, stride=stride, bias=bias),
+                                      nn.BatchNorm2d(int(n_filters)), )
 
     def forward(self, inputs):
         outputs = self.dcb_unit(inputs)
@@ -31,13 +31,13 @@ class deconv2DBatchNorm(nn.Module):
 
 
 class conv2DBatchNormRelu(nn.Module):
-    def __init__(self, in_channels, n_filters, k_size,  stride, padding, bias=True):
+    def __init__(self, in_channels, n_filters, k_size, stride, padding, bias=True):
         super(conv2DBatchNormRelu, self).__init__()
 
         self.cbr_unit = nn.Sequential(nn.Conv2d(int(in_channels), int(n_filters), kernel_size=k_size,
                                                 padding=padding, stride=stride, bias=bias),
-                                 nn.BatchNorm2d(int(n_filters)),
-                                 nn.ReLU(inplace=True),)
+                                      nn.BatchNorm2d(int(n_filters)),
+                                      nn.ReLU(inplace=True), )
 
     def forward(self, inputs):
         outputs = self.cbr_unit(inputs)
@@ -49,9 +49,9 @@ class deconv2DBatchNormRelu(nn.Module):
         super(deconv2DBatchNormRelu, self).__init__()
 
         self.dcbr_unit = nn.Sequential(nn.ConvTranspose2d(int(in_channels), int(n_filters), kernel_size=k_size,
-                                                padding=padding, stride=stride, bias=bias),
-                                 nn.BatchNorm2d(int(n_filters)),
-                                 nn.ReLU(inplace=True),)
+                                                          padding=padding, stride=stride, bias=bias),
+                                       nn.BatchNorm2d(int(n_filters)),
+                                       nn.ReLU(inplace=True), )
 
     def forward(self, inputs):
         outputs = self.dcbr_unit(inputs)
@@ -68,18 +68,18 @@ class unetConv2(nn.Module):
         s = stride
         p = padding
         if is_batchnorm:
-            for i in range(1, n+1):
+            for i in range(1, n + 1):
                 conv = nn.Sequential(nn.Conv2d(in_size, out_size, ks, s, p),
                                      nn.BatchNorm2d(out_size),
-                                     nn.ReLU(inplace=True),)
-                setattr(self, 'conv%d'%i, conv)
+                                     nn.ReLU(inplace=True), )
+                setattr(self, 'conv%d' % i, conv)
                 in_size = out_size
 
         else:
-            for i in range(1, n+1):
+            for i in range(1, n + 1):
                 conv = nn.Sequential(nn.Conv2d(in_size, out_size, ks, s, p),
-                                     nn.ReLU(inplace=True),)
-                setattr(self, 'conv%d'%i, conv)
+                                     nn.ReLU(inplace=True), )
+                setattr(self, 'conv%d' % i, conv)
                 in_size = out_size
 
         # initialise the blocks
@@ -88,29 +88,30 @@ class unetConv2(nn.Module):
 
     def forward(self, inputs):
         x = inputs
-        for i in range(1, self.n+1):
-            conv = getattr(self, 'conv%d'%i)
+        for i in range(1, self.n + 1):
+            conv = getattr(self, 'conv%d' % i)
             x = conv(x)
 
         return x
 
 
 class UnetConv3(nn.Module):
-    def __init__(self, in_size, out_size, is_batchnorm, kernel_size=(3,3,1), padding_size=(1,1,0), init_stride=(1,1,1)):
+    def __init__(self, in_size, out_size, is_batchnorm, kernel_size=(3, 3, 1), padding_size=(1, 1, 0),
+                 init_stride=(1, 1, 1)):
         super(UnetConv3, self).__init__()
 
         if is_batchnorm:
             self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, init_stride, padding_size),
                                        nn.BatchNorm3d(out_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
             self.conv2 = nn.Sequential(nn.Conv3d(out_size, out_size, kernel_size, 1, padding_size),
                                        nn.BatchNorm3d(out_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
         else:
             self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, init_stride, padding_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
             self.conv2 = nn.Sequential(nn.Conv3d(out_size, out_size, kernel_size, 1, padding_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
 
         # initialise the blocks
         for m in self.children():
@@ -123,26 +124,27 @@ class UnetConv3(nn.Module):
 
 
 class FCNConv3(nn.Module):
-    def __init__(self, in_size, out_size, is_batchnorm, kernel_size=(3,3,1), padding_size=(1,1,0), init_stride=(1,1,1)):
+    def __init__(self, in_size, out_size, is_batchnorm, kernel_size=(3, 3, 1), padding_size=(1, 1, 0),
+                 init_stride=(1, 1, 1)):
         super(FCNConv3, self).__init__()
 
         if is_batchnorm:
             self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, init_stride, padding_size),
                                        nn.BatchNorm3d(out_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
             self.conv2 = nn.Sequential(nn.Conv3d(out_size, out_size, kernel_size, 1, padding_size),
                                        nn.BatchNorm3d(out_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
             self.conv3 = nn.Sequential(nn.Conv3d(out_size, out_size, kernel_size, 1, padding_size),
                                        nn.BatchNorm3d(out_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
         else:
             self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, init_stride, padding_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
             self.conv2 = nn.Sequential(nn.Conv3d(out_size, out_size, kernel_size, 1, padding_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
             self.conv3 = nn.Sequential(nn.Conv3d(out_size, out_size, kernel_size, 1, padding_size),
-                                       nn.ReLU(inplace=True),)
+                                       nn.ReLU(inplace=True), )
 
         # initialise the blocks
         for m in self.children():
@@ -161,19 +163,19 @@ class UnetGatingSignal3(nn.Module):
         self.fmap_size = (4, 4, 4)
 
         if is_batchnorm:
-            self.conv1 = nn.Sequential(nn.Conv3d(in_size, in_size//2, (1,1,1), (1,1,1), (0,0,0)),
-                                       nn.BatchNorm3d(in_size//2),
+            self.conv1 = nn.Sequential(nn.Conv3d(in_size, in_size // 2, (1, 1, 1), (1, 1, 1), (0, 0, 0)),
+                                       nn.BatchNorm3d(in_size // 2),
                                        nn.ReLU(inplace=True),
                                        nn.AdaptiveAvgPool3d(output_size=self.fmap_size),
                                        )
-            self.fc1 = nn.Linear(in_features=(in_size//2) * self.fmap_size[0] * self.fmap_size[1] * self.fmap_size[2],
+            self.fc1 = nn.Linear(in_features=(in_size // 2) * self.fmap_size[0] * self.fmap_size[1] * self.fmap_size[2],
                                  out_features=out_size, bias=True)
         else:
-            self.conv1 = nn.Sequential(nn.Conv3d(in_size, in_size//2, (1,1,1), (1,1,1), (0,0,0)),
+            self.conv1 = nn.Sequential(nn.Conv3d(in_size, in_size // 2, (1, 1, 1), (1, 1, 1), (0, 0, 0)),
                                        nn.ReLU(inplace=True),
                                        nn.AdaptiveAvgPool3d(output_size=self.fmap_size),
                                        )
-            self.fc1 = nn.Linear(in_features=(in_size//2) * self.fmap_size[0] * self.fmap_size[1] * self.fmap_size[2],
+            self.fc1 = nn.Linear(in_features=(in_size // 2) * self.fmap_size[0] * self.fmap_size[1] * self.fmap_size[2],
                                  out_features=out_size, bias=True)
 
         # initialise the blocks
@@ -188,17 +190,73 @@ class UnetGatingSignal3(nn.Module):
         return outputs
 
 
+class UnetGatingSignal2(nn.Module):
+    def __init__(self, in_size, out_size, is_batchnorm):
+        super(UnetGatingSignal2, self).__init__()
+        self.fmap_size = (4, 4)
+
+        if is_batchnorm:
+            self.conv1 = nn.Sequential(nn.Conv2d(in_size, in_size // 2, (1, 1), (1, 1), (0, 0)),
+                                       nn.BatchNorm2d(in_size // 2),
+                                       nn.ReLU(inplace=True),
+                                       nn.AdaptiveAvgPool2d(output_size=self.fmap_size),
+                                       )
+            self.fc1 = nn.Linear(in_features=(in_size // 2) * self.fmap_size[0] * self.fmap_size[1],
+                                 out_features=out_size, bias=True)
+        else:
+            self.conv1 = nn.Sequential(nn.Conv2d(in_size, in_size // 2, (1, 1), (1, 1), (0, 0)),
+                                       nn.ReLU(inplace=True),
+                                       nn.AdaptiveAvgPool2d(output_size=self.fmap_size),
+                                       )
+            self.fc1 = nn.Linear(in_features=(in_size // 2) * self.fmap_size[0] * self.fmap_size[1],
+                                 out_features=out_size, bias=True)
+
+        # initialise the blocks
+        for m in self.children():
+            init_weights(m, init_type='kaiming')
+
+    def forward(self, inputs):
+        batch_size = inputs.size(0)
+        outputs = self.conv1(inputs)
+        outputs = outputs.view(batch_size, -1)
+        outputs = self.fc1(outputs)
+        return outputs
+
+
+class UnetGridGatingSignal2(nn.Module):
+    def __init__(self, in_size, out_size, kernel_size=(1, 1, 1), is_batchnorm=True):
+        super(UnetGridGatingSignal2, self).__init__()
+
+        if is_batchnorm:
+            self.conv1 = nn.Sequential(nn.Conv2d(in_size, out_size, kernel_size, (1, 1), (0, 0)),
+                                       nn.BatchNorm2d(out_size),
+                                       nn.ReLU(inplace=True),
+                                       )
+        else:
+            self.conv1 = nn.Sequential(nn.Conv2d(in_size, out_size, kernel_size, (1, 1), (0, 0)),
+                                       nn.ReLU(inplace=True),
+                                       )
+
+        # initialise the blocks
+        for m in self.children():
+            init_weights(m, init_type='kaiming')
+
+    def forward(self, inputs):
+        outputs = self.conv1(inputs)
+        return outputs
+
+
 class UnetGridGatingSignal3(nn.Module):
-    def __init__(self, in_size, out_size, kernel_size=(1,1,1), is_batchnorm=True):
+    def __init__(self, in_size, out_size, kernel_size=(1, 1, 1), is_batchnorm=True):
         super(UnetGridGatingSignal3, self).__init__()
 
         if is_batchnorm:
-            self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, (1,1,1), (0,0,0)),
+            self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, (1, 1, 1), (0, 0, 0)),
                                        nn.BatchNorm3d(out_size),
                                        nn.ReLU(inplace=True),
                                        )
         else:
-            self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, (1,1,1), (0,0,0)),
+            self.conv1 = nn.Sequential(nn.Conv3d(in_size, out_size, kernel_size, (1, 1, 1), (0, 0, 0)),
                                        nn.ReLU(inplace=True),
                                        )
 
@@ -238,9 +296,9 @@ class UnetUp3(nn.Module):
         super(UnetUp3, self).__init__()
         if is_deconv:
             self.conv = UnetConv3(in_size, out_size, is_batchnorm)
-            self.up = nn.ConvTranspose3d(in_size, out_size, kernel_size=(4,4,1), stride=(2,2,1), padding=(1,1,0))
+            self.up = nn.ConvTranspose3d(in_size, out_size, kernel_size=(4, 4, 1), stride=(2, 2, 1), padding=(1, 1, 0))
         else:
-            self.conv = UnetConv3(in_size+out_size, out_size, is_batchnorm)
+            self.conv = UnetConv3(in_size + out_size, out_size, is_batchnorm)
             self.up = nn.Upsample(scale_factor=(2, 2, 1), mode='trilinear')
 
         # initialise the blocks
@@ -259,7 +317,7 @@ class UnetUp3(nn.Module):
 class UnetUp3_CT(nn.Module):
     def __init__(self, in_size, out_size, is_batchnorm=True):
         super(UnetUp3_CT, self).__init__()
-        self.conv = UnetConv3(in_size + out_size, out_size, is_batchnorm, kernel_size=(3,3,3), padding_size=(1,1,1))
+        self.conv = UnetConv3(in_size + out_size, out_size, is_batchnorm, kernel_size=(3, 3, 3), padding_size=(1, 1, 1))
         self.up = nn.Upsample(scale_factor=(2, 2, 2), mode='trilinear')
 
         # initialise the blocks
@@ -290,7 +348,6 @@ class SqEx(nn.Module):
         self.nonlin2 = nn.Sigmoid()
 
     def forward(self, x):
-
         y = F.avg_pool3d(x, kernel_size=x.size()[2:5])
         y = y.permute(0, 2, 3, 4, 1)
         y = self.nonlin1(self.linear1(y))
@@ -299,16 +356,17 @@ class SqEx(nn.Module):
         y = x * y
         return y
 
+
 class UnetUp3_SqEx(nn.Module):
     def __init__(self, in_size, out_size, is_deconv, is_batchnorm):
         super(UnetUp3_SqEx, self).__init__()
         if is_deconv:
-            self.sqex = SqEx(n_features=in_size+out_size)
+            self.sqex = SqEx(n_features=in_size + out_size)
             self.conv = UnetConv3(in_size, out_size, is_batchnorm)
-            self.up = nn.ConvTranspose3d(in_size, out_size, kernel_size=(4,4,1), stride=(2,2,1), padding=(1,1,0))
+            self.up = nn.ConvTranspose3d(in_size, out_size, kernel_size=(4, 4, 1), stride=(2, 2, 1), padding=(1, 1, 0))
         else:
-            self.sqex = SqEx(n_features=in_size+out_size)
-            self.conv = UnetConv3(in_size+out_size, out_size, is_batchnorm)
+            self.sqex = SqEx(n_features=in_size + out_size)
+            self.conv = UnetConv3(in_size + out_size, out_size, is_batchnorm)
             self.up = nn.Upsample(scale_factor=(2, 2, 1), mode='trilinear')
 
         # initialise the blocks
@@ -322,8 +380,9 @@ class UnetUp3_SqEx(nn.Module):
         padding = 2 * [offset // 2, offset // 2, 0]
         outputs1 = F.pad(inputs1, padding)
         concat = torch.cat([outputs1, outputs2], 1)
-        gated  = self.sqex(concat)
+        gated = self.sqex(concat)
         return self.conv(gated)
+
 
 class residualBlock(nn.Module):
     expansion = 1
@@ -331,7 +390,7 @@ class residualBlock(nn.Module):
     def __init__(self, in_channels, n_filters, stride=1, downsample=None):
         super(residualBlock, self).__init__()
 
-        self.convbnrelu1 = conv2DBatchNormRelu(in_channels, n_filters, 3,  stride, 1, bias=False)
+        self.convbnrelu1 = conv2DBatchNormRelu(in_channels, n_filters, 3, stride, 1, bias=False)
         self.convbn2 = conv2DBatchNorm(n_filters, n_filters, 3, 1, 1, bias=False)
         self.downsample = downsample
         self.stride = stride
@@ -356,9 +415,9 @@ class residualBottleneck(nn.Module):
 
     def __init__(self, in_channels, n_filters, stride=1, downsample=None):
         super(residualBottleneck, self).__init__()
-        self.convbn1 = nn.Conv2DBatchNorm(in_channels,  n_filters, k_size=1, bias=False)
-        self.convbn2 = nn.Conv2DBatchNorm(n_filters,  n_filters, k_size=3, padding=1, stride=stride, bias=False)
-        self.convbn3 = nn.Conv2DBatchNorm(n_filters,  n_filters * 4, k_size=1, bias=False)
+        self.convbn1 = nn.Conv2DBatchNorm(in_channels, n_filters, k_size=1, bias=False)
+        self.convbn2 = nn.Conv2DBatchNorm(n_filters, n_filters, k_size=3, padding=1, stride=stride, bias=False)
+        self.convbn3 = nn.Conv2DBatchNorm(n_filters, n_filters * 4, k_size=1, bias=False)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -377,8 +436,6 @@ class residualBottleneck(nn.Module):
         out = self.relu(out)
 
         return out
-
-
 
 
 class SeqModelFeatureExtractor(nn.Module):
