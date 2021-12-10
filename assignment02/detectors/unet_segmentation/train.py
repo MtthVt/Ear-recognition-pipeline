@@ -12,6 +12,7 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
+from assignment02.detectors.unet_segmentation.unet_attention.networks.unet_grid_attention_2D import UNet_Attention
 from assignment02.metrics.evaluation import Evaluation
 from utils.data_loading import BasicDataset, TransformDataset
 from utils.dice_score import dice_loss, multiclass_dice_coeff
@@ -65,12 +66,14 @@ def train_net(net,
 
     betas = (0.9, 0.999)
     eps = 1e-08
-    cross_entropy_weight = [1., 5.]    # 2nd class (ear) is way rarer -> adapt loss function
+    cross_entropy_weight = [1., 5.]  # 2nd class (ear) is way rarer -> adapt loss function
     # (Initialize logging)
     experiment = wandb.init(project='U-Net', resume='allow', entity="min0x")
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
-                                  amp=amp, optimizer='ADAM', betas=betas, eps=eps, cross_entropy_weight=cross_entropy_weight))
+                                  amp=amp, optimizer='ADAM', betas=betas, eps=eps,
+                                  cross_entropy_weight=cross_entropy_weight, architecture="UNET",
+                                  augmentation="Histogram-eq+Transform"))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -231,9 +234,9 @@ def test_net(net, device, experiment):
 
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
+    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=20, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=5, help='Batch size')
-    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.001,
+    parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.0001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
     parser.add_argument('--scale', '-s', type=float, default=1.0, help='Downscaling factor of the images')
@@ -254,10 +257,10 @@ if __name__ == '__main__':
     # Change here to adapt to your data
     # n_channels=3 for RGB images
     # n_classes is the number of probabilities you want to get per pixel
-    net = UNet(n_channels=3, n_classes=2, bilinear=True)
-    checkpoint = "checkpoints/ADAM_Transform_checkpoint_epoch5.pth"
-    net.load_state_dict(torch.load(checkpoint, map_location=device))
-    net.to(device=device)
+    # net = UNet(n_channels=3, n_classes=2, bilinear=True)
+    # checkpoint = "checkpoints/revived-night-66_cp_epoch5.pth"
+    # net.load_state_dict(torch.load(checkpoint, map_location=device))
+    net = UNet_Attention(n_channels=3, n_classes=2, bilinear=True)
 
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
