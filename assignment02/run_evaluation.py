@@ -1,18 +1,15 @@
-import cv2
-import numpy as np
 import glob
-import os
-from pathlib import Path
 import json
+import os
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-from PIL import Image
 from torch.utils.data import DataLoader
 
-import preprocessing.preprocess as preprc
 from assignment02.detectors.unet_segmentation.utils.data_loading import BasicDataset
 from metrics.evaluation import Evaluation
+
 
 class EvaluateAll:
 
@@ -26,14 +23,14 @@ class EvaluateAll:
         self.annotations_path = config['annotations_path']
 
     def get_annotations(self, annot_name):
-            with open(annot_name) as f:
-                lines = f.readlines()
-                annot = []
-                for line in lines:
-                    l_arr = line.split(" ")[1:5]
-                    l_arr = [int(i) for i in l_arr]
-                    annot.append(l_arr)
-            return annot
+        with open(annot_name) as f:
+            lines = f.readlines()
+            annot = []
+            for line in lines:
+                l_arr = line.split(" ")[1:5]
+                l_arr = [int(i) for i in l_arr]
+                annot.append(l_arr)
+        return annot
 
     def run_evaluation(self):
 
@@ -48,12 +45,11 @@ class EvaluateAll:
         # 2. Create data loader
         loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
         test_loader = DataLoader(test_set, shuffle=False, **loader_args)
-        
+
         # Change the following detector and/or add your detectors below
         import detectors.cascade_detector.detector as cascade_detector
         # import detectors.your_super_detector.detector as super_detector
         cascade_detector = cascade_detector.Detector()
-
 
         # CUDA device
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
