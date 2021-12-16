@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.modules.loss import _Loss
-from torch.autograd import Function, Variable
+
 
 def cross_entropy_2D(input, target, weight=None, size_average=True):
     n, c, h, w = input.size()

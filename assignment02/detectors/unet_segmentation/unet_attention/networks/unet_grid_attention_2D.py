@@ -1,5 +1,5 @@
 """ Full assembly of the parts to form the complete network """
-from .utils import UnetGatingSignal2, UnetGridGatingSignal2
+from .utils import UnetGridGatingSignal2
 from ...unet.unet_parts import *
 from ..layers.grid_attention_layer import GridAttentionBlock2D
 
@@ -12,7 +12,6 @@ class UNet_Attention(nn.Module):
         self.bilinear = bilinear
 
         filters = [64, 128, 256, 512, 1024]
-        # filters = [int(x / self.feature_scale) for x in filters]
 
         # downsampling
         self.inc = DoubleConv(n_channels, 64)
