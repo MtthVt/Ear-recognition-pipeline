@@ -68,7 +68,7 @@ def train_net(net,
     eps = 1e-08
     cross_entropy_weight = [1., 5.]  # 2nd class (ear) is way rarer -> adapt loss function
     # (Initialize logging)
-    experiment = wandb.init(project='U-Net', resume='allow', entity="min0x")
+    experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
