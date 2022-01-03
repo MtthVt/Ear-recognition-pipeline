@@ -143,3 +143,5 @@ cython_debug/
 # Dataset
 data/
 /assignment02/detectors/unet_segmentation/checkpoints
+# Wandb files
+/assignment02/detectors/unet_segmentation/wandb/
