@@ -14,15 +14,14 @@ from tqdm import tqdm
 
 from detectors.unet_segmentation.unet_attention.networks.unet_grid_attention_2D import UNet_Attention
 from metrics.evaluation import Evaluation
-from utils.data_loading import BasicDataset, TransformDataset
+from utils.data_loading import BasicDatasetDetection, TransformDatasetDetection
 from utils.dice_score import dice_loss, multiclass_dice_coeff
 from evaluate import evaluate
 from detectors.unet_segmentation.unet import UNet
 
-dir_img = Path('../../data/ears/train/')
-dir_img_test = Path('../../data/ears/test/')
-dir_mask = Path('../../data/ears/annotations/segmentation/train')
-dir_mask_test = Path('../../data/ears/annotations/segmentation/test')
+dir_img = Path('../../perfectly_detected_ears/train/')
+dir_img_test = Path('../../perfectly_detected_ears/test/')
+dict_id_translation = Path('../../perfectly_detected_ears/annotations/ids.csv')
 dir_checkpoint = Path('./checkpoints/')
 
 
@@ -33,26 +32,9 @@ def train_net(net,
               learning_rate: float = 0.001,
               val_percent: float = 0.1,
               save_checkpoint: bool = True,
-              img_scale: float = 0.5,
               amp: bool = False):
     # 1. Create dataset
-    # try:
-    #     dataset = CarvanaDataset(dir_img, dir_mask, img_scale)
-    # except (AssertionError, RuntimeError):
-    dataset = TransformDataset(dir_img, dir_mask, length=1500, scale=img_scale)
-
-    #### Calculation of data distribution
-    # dataset = BasicDataset(dir_img_test, dir_mask_test, scale=img_scale)
-    # loader_args = dict(batch_size=batch_size, num_workers=1, pin_memory=True)
-    # train_loader = DataLoader(dataset, shuffle=False, **loader_args)
-    # dist = {0: 0, 1: 0}
-    # for batch in train_loader:
-    #     true_masks = batch['mask']
-    #     unique, counts = np.unique(true_masks, return_counts=True)
-    #     tmp = dict(zip(unique, counts))
-    #     dist[0] += tmp[0]
-    #     dist[1] += tmp[1]
-    # print(dist[0] / dist[1])
+    dataset = TransformDatasetDetection(dir_img, dir_mask, length=1500, scale=img_scale)
 
     # 2. Split into train / validation partitions
     n_val = int(len(dataset) * val_percent)
@@ -68,11 +50,11 @@ def train_net(net,
     eps = 1e-08
     cross_entropy_weight = [1., 5.]  # 2nd class (ear) is way rarer -> adapt loss function
     # (Initialize logging)
-    experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
+    experiment = wandb.init(project='Ear-Recognition', resume='allow', entity='min0x')
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
-                                  val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
+                                  val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
-                                  cross_entropy_weight=cross_entropy_weight, architecture="UNET",
+                                  cross_entropy_weight=cross_entropy_weight, architecture="CNN-Basic",
                                   augmentation="Histogram-eq+Transform"))
 
     logging.info(f'''Starting training:
@@ -83,7 +65,6 @@ def train_net(net,
         Validation size: {n_val}
         Checkpoints:     {save_checkpoint}
         Device:          {device.type}
-        Images scaling:  {img_scale}
         Mixed Precision: {amp}
     ''')
 
@@ -115,10 +96,12 @@ def train_net(net,
                     'the images are loaded correctly.'
 
                 images = images.to(device=device, dtype=torch.float32)
+                #TODO: Anpassen
                 true_masks = true_masks.to(device=device, dtype=torch.long)
 
                 with torch.cuda.amp.autocast(enabled=amp):
                     masks_pred = net(images)
+                    #TODO: Anpassen: Anderer loss
                     loss = criterion(masks_pred, true_masks) \
                            + dice_loss(F.softmax(masks_pred, dim=1).float(),
                                        F.one_hot(true_masks, net.n_classes).permute(0, 3, 1, 2).float(),
@@ -180,7 +163,7 @@ def test_net(net, device, experiment):
     eval = Evaluation()
 
     # 1. Create dataset
-    test_set = BasicDataset(dir_img_test, dir_mask_test, 1.0)
+    test_set = BasicDatasetDetection(dir_img_test, dir_mask_test, 1.0)
 
     # 2. Create data loader
     loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
@@ -233,13 +216,12 @@ def test_net(net, device, experiment):
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
+    parser = argparse.ArgumentParser(description='Train the CNN-model on images and target ids')
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=20, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=5, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.0001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    parser.add_argument('--scale', '-s', type=float, default=1.0, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
@@ -255,11 +237,7 @@ if __name__ == '__main__':
     logging.info(f'Using device {device}')
 
     # Change here to adapt to your data
-    # n_channels=3 for RGB images
-    # n_classes is the number of probabilities you want to get per pixel
-    # net = UNet(n_channels=3, n_classes=2, bilinear=True)
-    # checkpoint = "checkpoints/revived-night-66_cp_epoch5.pth"
-    # net.load_state_dict(torch.load(checkpoint, map_location=device))
+    #TODO: REDO for CNN-architecture
     net = UNet_Attention(n_channels=3, n_classes=2, bilinear=True)
 
     logging.info(f'Network:\n'
@@ -278,7 +256,6 @@ if __name__ == '__main__':
                                batch_size=args.batch_size,
                                learning_rate=args.lr,
                                device=device,
-                               img_scale=args.scale,
                                val_percent=args.val / 100,
                                amp=args.amp)
         test_net(net=net,
