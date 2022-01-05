@@ -12,10 +12,10 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
-from assignment02.detectors.unet_segmentation.unet_attention.networks.unet_grid_attention_2D import UNet_Attention
-from assignment02.metrics.evaluation import Evaluation
+from detectors.unet_segmentation.unet_attention.networks.unet_grid_attention_2D import UNet_Attention
+from metrics.evaluation import Evaluation
 from utils.data_loading import BasicDataset, TransformDataset
-from utils.dice_score import dice_loss, multiclass_dice_coeff
+from utils.dice_score import dice_loss
 from evaluate import evaluate
 from unet import UNet
 

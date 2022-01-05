@@ -8,7 +8,7 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 
-from assignment02.preprocessing import preprocess
+from preprocessing import preprocess
 
 
 class BasicDataset(Dataset):
