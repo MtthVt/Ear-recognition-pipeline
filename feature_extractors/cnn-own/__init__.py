@@ -1,1 +1,1 @@
-from .cnn_rec_model import UNet
+from .cnn_model import CNN_model

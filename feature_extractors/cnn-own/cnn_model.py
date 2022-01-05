@@ -3,9 +3,9 @@
 from .unet_parts import *
 
 
-class UNet(nn.Module):
+class CNN_model(nn.Module):
     def __init__(self, n_channels, n_classes, bilinear=True):
-        super(UNet, self).__init__()
+        super(CNN_model, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes
         self.bilinear = bilinear
