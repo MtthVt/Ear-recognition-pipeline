@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from detectors.unet_segmentation.unet_attention.networks.unet_grid_attention_2D import UNet_Attention
 from metrics.evaluation import Evaluation
-from utils.data_loading import BasicDataset, TransformDataset
+from utils.data_loading import BasicDatasetDetection, TransformDatasetDetection
 from utils.dice_score import dice_loss
 from evaluate import evaluate
 from unet import UNet
@@ -39,7 +39,7 @@ def train_net(net,
     # try:
     #     dataset = CarvanaDataset(dir_img, dir_mask, img_scale)
     # except (AssertionError, RuntimeError):
-    dataset = TransformDataset(dir_img, dir_mask, length=1500, scale=img_scale)
+    dataset = TransformDatasetDetection(dir_img, dir_mask, length=1500, scale=img_scale)
 
     #### Calculation of data distribution
     # dataset = BasicDataset(dir_img_test, dir_mask_test, scale=img_scale)
@@ -180,7 +180,7 @@ def test_net(net, device, experiment):
     eval = Evaluation()
 
     # 1. Create dataset
-    test_set = BasicDataset(dir_img_test, dir_mask_test, 1.0)
+    test_set = BasicDatasetDetection(dir_img_test, dir_mask_test, 1.0)
 
     # 2. Create data loader
     loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)

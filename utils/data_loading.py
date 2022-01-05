@@ -1,4 +1,6 @@
+import csv
 import logging
+import os
 from os import listdir
 from os.path import splitext
 from pathlib import Path
@@ -11,7 +13,7 @@ from torch.utils.data import Dataset
 from preprocessing import preprocess
 
 
-class BasicDataset(Dataset):
+class BasicDatasetDetection(Dataset):
     def __init__(self, images_dir: str, masks_dir: str, scale: float = 1.0, mask_suffix: str = ''):
         self.images_dir = Path(images_dir)
         self.masks_dir = Path(masks_dir)
@@ -67,7 +69,7 @@ class BasicDataset(Dataset):
         }
 
 
-class TransformDataset(BasicDataset):
+class TransformDatasetDetection(BasicDatasetDetection):
     def __init__(self, images_dir, masks_dir, length, scale=1):
         super().__init__(images_dir, masks_dir, scale)
         # Resize the ids to meet the specified length
@@ -104,3 +106,59 @@ class TransformDataset(BasicDataset):
             'image': img.float().contiguous(),
             'mask': msk.long().contiguous()
         }
+
+
+class BasicDatasetRecognition(Dataset):
+    """
+    Preferred dataset to be used with the recognition task.
+    """
+
+    def __init__(self, images_dir: str, dict_id_translation: str):
+        self.images_dir = Path(images_dir)
+        self.dict_id_translation = Path(dict_id_translation)
+
+        # Save every filename with the last folder name (train/test) in list
+        last_folder_name = os.path.basename(os.path.normpath(images_dir))
+        self.img_files = [last_folder_name + "/" + file for file in listdir(images_dir) if not file.startswith('.')]
+        if not self.img_files:
+            raise RuntimeError(f'No input file found in {images_dir}, make sure you put your images there')
+
+        # Load the corresponding ids
+        with open(dict_id_translation, mode='r') as infile:
+            reader = csv.reader(infile)
+            self.id_dict = {rows[0]: rows[1] for rows in reader}
+        logging.info(f'Creating dataset with {len(self.ids)} examples')
+
+    def __len__(self):
+        return len(self.ids)
+
+    @classmethod
+    def load(cls, filename):
+        return Image.open(filename)
+
+    def __getitem__(self, idx):
+        img_file = self.img_files[idx]
+        id = self.id_dict[img_file]
+
+        img = self.load(img_file)
+
+        # Apply image equalization
+        # TODO: Implement image equalization
+        img = preprocess.image_equalization(img, self.scale, is_mask=False)
+
+        # Apply image preprocessing
+        # img = preprocess.histogram_equalization_rgb(img)
+
+        # Transform to np array for further techniques
+        # TODO: Check if structure still fits
+        img = preprocess.transform_numpy(img, is_mask=False)
+
+        return {
+            'image': torch.as_tensor(img.copy()).float().contiguous(),
+            'id': id
+        }
+
+
+if __name__ == "__main__":
+    tmp = BasicDatasetRecognition("../data/perfectly_detected_ears/train",
+                                  "../data/perfectly_detected_ears/annotations/recognition/ids.csv")
