@@ -38,7 +38,7 @@ class EvaluateAll:
         for i in range(len(im_list)):
             im_list[i] = im_list[i].replace("\\", "/")
         iou_arr = []
-        preprocess = Preprocess()
+        # preprocess = Preprocess()
         eval = Evaluation()
 
         cla_d = self.get_annotations(self.annotations_path)
@@ -48,6 +48,9 @@ class EvaluateAll:
         # Pixel-wise comparison:
         import feature_extractors.pix2pix.extractor as p2p_ext
         pix2pix = p2p_ext.Pix2Pix()
+
+        import feature_extractors.lbp.extractor as lbp_ext
+        lbp = lbp_ext.LBP()
         
         lbp_features_arr = []
         plain_features_arr = []
