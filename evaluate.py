@@ -40,3 +40,44 @@ def evaluate(net, dataloader, device):
     if num_val_batches == 0:
         return dice_score
     return dice_score / num_val_batches
+
+
+def evaluate_recognition(net, dataloader, device):
+    """
+    Evaluate a recognition model via calculating it's mean accuracy.
+    :param net: Network to evaluate
+    :param dataloader:  Dataloader for the evaluation data
+    :param device:  CUDA device to perform the computations on
+    :return: mean accuracy
+    """
+    net.eval()      # Important for pytorch internals!
+    num_val_batches = len(dataloader)
+    batch_size = dataloader.batch_size
+
+    acc_count = 0.
+    # iterate over the validation set
+    for batch in tqdm(dataloader, total=num_val_batches, desc='Validation round', unit='batch', leave=False):
+        image, id_true = batch['image'], batch['id']
+        # move images and ids to correct device and type
+        image = image.to(device=device, dtype=torch.float32)
+        id_true = id_true.to(device=device, dtype=torch.float32)
+
+        with torch.no_grad():
+            # predict the ids
+            id_pred = net(image)
+
+            # Get the resulting ids from both
+            id_pred = id_pred.argmax(dim=1).long()
+            id_true = id_true.argmax(dim=1).long()
+
+            # Calculate the number of matching ids (predict/true)
+            acc_count += torch.sum(torch.eq(id_pred, id_true)).item()
+    # Put the network back into train mode
+    net.train()
+
+    # Fixes a potential division by zero error
+    if num_val_batches == 0:
+        # return ce_loss
+        return acc_count
+    # return ce_loss / num_val_batches
+    return acc_count / (num_val_batches*batch_size)
