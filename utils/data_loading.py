@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from PIL import Image
 from torch.utils.data import Dataset
+import torch.nn.functional as F
 
 from preprocessing import preprocess
 
@@ -113,13 +114,14 @@ class BasicDatasetRecognition(Dataset):
     Preferred dataset to be used with the recognition task.
     """
 
-    def __init__(self, images_dir: str, dict_id_translation: str):
-        self.images_dir = Path(images_dir)
-        self.dict_id_translation = Path(dict_id_translation)
+    def __init__(self, images_dir: Path, dict_id_translation: Path, num_classes: int):
+        self.images_dir = str(images_dir)
+        self.dict_id_translation = dict_id_translation
+        self.num_classes = num_classes
 
         # Save every filename with the last folder name (train/test) in list
-        last_folder_name = os.path.basename(os.path.normpath(images_dir))
-        self.img_files = [last_folder_name + "/" + file for file in listdir(images_dir) if not file.startswith('.')]
+        self.last_folder_name = os.path.basename(os.path.normpath(images_dir))
+        self.img_files = [file for file in listdir(images_dir) if not file.startswith('.')]
         if not self.img_files:
             raise RuntimeError(f'No input file found in {images_dir}, make sure you put your images there')
 
@@ -127,35 +129,38 @@ class BasicDatasetRecognition(Dataset):
         with open(dict_id_translation, mode='r') as infile:
             reader = csv.reader(infile)
             self.id_dict = {rows[0]: rows[1] for rows in reader}
-        logging.info(f'Creating dataset with {len(self.ids)} examples')
+        logging.info(f'Creating dataset with {len(self.img_files)} examples')
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.img_files)
 
     @classmethod
-    def load(cls, filename):
+    def load(cls, filename: str):
         return Image.open(filename)
 
     def __getitem__(self, idx):
         img_file = self.img_files[idx]
-        id = self.id_dict[img_file]
+        id_img = int(self.id_dict[self.last_folder_name + '/' + img_file])
+        id_img -= 1  # Ids for the dataset start at 1, while our vector starts at 0
+        # convert id to one hot encoded tensor
+        id_img = torch.as_tensor(id_img).long()
+        id_img = F.one_hot(id_img, num_classes=self.num_classes)
 
-        img = self.load(img_file)
+        # Load the image and apply preprocessing techniques
+        img = self.load(self.images_dir + '/' + img_file)
 
         # Apply image equalization
-        # TODO: Implement image equalization
-        img = preprocess.image_equalization(img, self.scale, is_mask=False)
+        img = preprocess.image_equalization_recognition(img)
 
         # Apply image preprocessing
         # img = preprocess.histogram_equalization_rgb(img)
 
         # Transform to np array for further techniques
-        # TODO: Check if structure still fits
-        img = preprocess.transform_numpy(img, is_mask=False)
+        img = preprocess.transform_numpy_recognition(img)
 
         return {
-            'image': torch.as_tensor(img.copy()).float().contiguous(),
-            'id': id
+            'image': torch.as_tensor(img.copy()).float(),
+            'id': id_img.float()
         }
 
 
