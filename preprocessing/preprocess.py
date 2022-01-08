@@ -1,9 +1,8 @@
 import cv2
 import numpy as np
-from PIL import Image, ImageOps
-import torchvision as tv
 import torch
-import torchvision.transforms.functional as TF
+import torchvision as tv
+from PIL import Image, ImageOps
 
 
 def histogram_equalization_rgb(img):
@@ -38,6 +37,26 @@ def image_equalization(pil_img, scale, is_mask):
     return pil_img
 
 
+def image_equalization_recognition(pil_img):
+    """
+    Preprocesses the ear image for the recognition task.
+    Convert image mode to grayscale + reshape it to the predefined width
+    :param pil_img: PIL image to transform
+    :return: transformed PIL image
+    """
+    # TODO:Insert here the desired image format
+    new_w, new_h = 64, 128
+
+    # Convert to RGB if image has other mode (e.g. grayscale, RGBA)
+    if pil_img.mode != 'L':
+        pil_img = pil_img.convert('L')
+
+    # Resize image to new size if necessary
+    # TODO: Check resize options
+    pil_img = pil_img.resize((new_w, new_h), Image.BICUBIC)
+    return pil_img
+
+
 def transform_numpy(pil_img, is_mask):
     """
     Transform the PIL image to numpy array. Normalize to [0,1] & convert array structure to fit NN.
@@ -47,6 +66,21 @@ def transform_numpy(pil_img, is_mask):
     # Convert image to fit to neural network dimension structure
     if not is_mask:
         img_ndarray = img_ndarray.transpose((2, 0, 1))
+
+    # Normalize pixel values to [0, 1]
+    img_ndarray = img_ndarray / 255
+
+    return img_ndarray
+
+
+def transform_numpy_recognition(pil_img):
+    """
+    Transform the PIL image to numpy array. Normalize to [0,1] & convert array structure to fit NN.
+    """
+    img_ndarray = np.asarray(pil_img)
+
+    # Convert image to fit to neural network dimension structure
+    img_ndarray = np.expand_dims(img_ndarray, 0)
 
     # Normalize pixel values to [0, 1]
     img_ndarray = img_ndarray / 255
