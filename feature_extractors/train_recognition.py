@@ -156,7 +156,7 @@ def test_net(net, device, experiment):
     """
     net.eval()
     # 1. Create dataset
-    test_set = BasicDatasetRecognition(dir_img_train, dict_id_translation, net.n_classes)
+    test_set = BasicDatasetRecognition(dir_img_test, dict_id_translation, net.n_classes)
 
     # 2. Create data loader
     loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
