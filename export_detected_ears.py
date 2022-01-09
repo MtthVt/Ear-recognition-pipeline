@@ -2,6 +2,7 @@ import os
 from os import listdir
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
@@ -27,6 +28,7 @@ def export_detected_ears(detect_model, dir_img: Path, dict_translation: Path, sa
     trans_df = pd.read_csv(dict_translation)
     last_folder_name = os.path.basename(os.path.normpath(dir_img))
 
+    counter = 0
     # Iterate over all the images
     for img_name in images:
         img = Image.open(Path.joinpath(dir_img, img_name))
@@ -43,12 +45,9 @@ def export_detected_ears(detect_model, dir_img: Path, dict_translation: Path, sa
         # Convert the mask to a PIL image
         mask_np = mask_pred.cpu().detach().numpy()
         mask_np *= 255
-        pil_msk = Image.fromarray(mask_np)
-        # Optional: Plot the mask
-        # pil_msk.show()
 
         # Generate result image by multiplying the two
-        res_img = extract_mask_from_image(img, pil_msk)
+        res_img = extract_mask_from_image(img, mask_np)
         # Optional: Plot the result image
         # res_img.show()
 
@@ -59,24 +58,47 @@ def export_detected_ears(detect_model, dir_img: Path, dict_translation: Path, sa
         rec_fn = rec_fn.replace("/", "_")
         res_img.save(Path.joinpath(save_path, rec_fn))
 
+        counter += 1
+        print("Finished " + str(counter) + " images.")
 
-def extract_mask_from_image(img, pil_msk):
+
+def extract_mask_from_image(img, mask_np):
     """
     Multiplies a grey image mask with img
     :param img: 3-channel RGB PIL Image
-    :param pil_msk: 1-channel Grayscale PIL Image
+    :param mask_np: np-array of mask
     :return: 3-channel RGB PIL Image, cut out
     """
+    # Generate a PIL image from the mask
+    pil_msk = Image.fromarray(mask_np)
+    # Optional: Plot the mask
+    # pil_msk.show()
+    x, y = np.nonzero(mask_np)
+    if len(x) > 0 and len(y) > 0:
+        margin = 5
+        left = y.min() - margin
+        top = x.max() + margin
+        bottom = x.min() - margin
+        right = y.max() + margin
+    else:
+        # nn did not find any ear at all
+        left = 0
+        bottom = 0
+        right = pil_msk.size[0]
+        top = pil_msk.size[1]
+
     # Split the original image into three channels
     img_bands = img.split()
     res_img_bands = list()
     # Apply bitwise and for all the channels, convert back to 8-bit because bitwise & converts to 32-bit
     for i in range(len(img_bands)):
-        res_img_bands.append(ImageMath.eval("convert(a & b, 'L')", a=img_bands[i], b=pil_msk))
+        res_img_bands.append(
+            ImageMath.eval("convert(a & b, 'L')", a=img_bands[i], b=pil_msk).crop((left, bottom, right, top)))
         # img_bands[i].show()
         # res_img_bands[i].show()
     # Merge the channels back together to get resulting image
     res_img = Image.merge(mode="RGB", bands=res_img_bands)
+    # res_img.show()
     return res_img
 
 
