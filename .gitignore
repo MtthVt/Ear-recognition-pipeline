@@ -142,6 +142,7 @@ cython_debug/
 
 # Dataset
 data/
-detectors/unet_segmentation/checkpoints
+# Checkpoints from previous runs
+**/checkpoints
 # Wandb files
 **/wandb/

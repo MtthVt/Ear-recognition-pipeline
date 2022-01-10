@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import torch
 import torchvision as tv
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter
 
 
 def histogram_equalization_rgb(img):
@@ -125,6 +125,57 @@ def image_augmentation(img, mask):
     # tv.transforms.ToPILImage()(img).show()
     # tv.transforms.ToPILImage()(msk * 255).show()
     return img, msk
+
+
+def image_edge_detection(imageObject):
+    # Apply edge enhancement filter
+
+    # edgeEnahnced = imageObject.filter(ImageFilter.EDGE_ENHANCE)
+    #
+    # # Apply increased edge enhancement filter
+    #
+    # moreEdgeEnahnced = imageObject.filter(ImageFilter.EDGE_ENHANCE_MORE)
+
+    # Find the edges by applying the filter ImageFilter.FIND_EDGES
+
+    imageWithEdges = imageObject.filter(ImageFilter.FIND_EDGES)
+
+    # # Show original image - before applying edge enhancement filters
+    #
+    # imageObject.show()
+    #
+    # # Show image - after applying edge enhancement filter
+    #
+    # edgeEnahnced.show()
+    #
+    # # Show image - after applying increased edge enhancement filter
+    #
+    # moreEdgeEnahnced.show()
+    # Delete edges at the border
+    pixels = imageWithEdges.load()  # create the pixel map
+    for col in range(imageWithEdges.size[0]):  # for every col:
+        pixels[col, 0] = 0
+        pixels[col, imageWithEdges.size[1] - 1] = 0
+    for row in range(imageWithEdges.size[1]):  # For every row
+        pixels[0, row] = 0
+        pixels[imageWithEdges.size[0] - 1, row] = 0
+
+    # Make image binary by applying threshold
+    # img_eq = ImageOps.equalize(imageWithEdges)
+    # img_auto = ImageOps.autocontrast(imageWithEdges)
+    # img_bi = imageWithEdges.convert("1")
+
+    # imageObject.show()
+    # imageWithEdges.show()
+    # img_bi.show()
+    # img_eq.show()
+    # img_auto.show()
+    # hist = imageWithEdges.histogram()
+    # plt.hist(hist, bins=np.arange(0,255), log=True)
+    # plt.show()
+    # print("Hello")
+    return imageWithEdges
+
 
 
 class Preprocess:
