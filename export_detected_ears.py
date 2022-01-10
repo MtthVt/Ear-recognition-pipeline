@@ -33,10 +33,10 @@ def export_detected_ears(detect_model, dir_img: Path, dict_translation: Path, sa
     for img_name in images:
         img = Image.open(Path.joinpath(dir_img, img_name))
         # Apply image equalization
-        img, img_np = prepare_img_nn(img)
+        img, img_tensor = prepare_img_nn(img)
 
         # Generate mask prediction from network
-        mask_pred = detect_model(img_np)
+        mask_pred = detect_model(img_tensor)
         # Convert to one hot encoded
         mask_pred = F.one_hot(mask_pred.argmax(dim=1), net.n_classes).permute(0, 3, 1, 2).float()
         # Extract the relevant mask (ear)
@@ -106,14 +106,14 @@ def prepare_img_nn(img):
     img = preprocess.image_equalization(img, scale=1, is_mask=False)
 
     # Transform to np array for further techniques
-    img_np = preprocess.transform_numpy(img, is_mask=False)
+    img_tensor = preprocess.transform_numpy(img, is_mask=False)
 
     # Convert to pytorch tensor
-    img_np = torch.as_tensor(img_np.copy()).float().contiguous()
+    img_tensor = torch.as_tensor(img_tensor.copy()).float().contiguous()
 
     # Insert dummy batch dimension
-    img_np = torch.unsqueeze(img_np, dim=0)
-    return img, img_np
+    img_tensor = torch.unsqueeze(img_tensor, dim=0)
+    return img, img_tensor
 
 
 if __name__ == "__main__":
