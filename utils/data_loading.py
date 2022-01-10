@@ -154,6 +154,7 @@ class BasicDatasetRecognition(Dataset):
 
         # Apply image preprocessing
         # img = preprocess.histogram_equalization_rgb(img)
+        img = preprocess.image_edge_detection(img)
 
         # Transform to np array for further techniques
         img = preprocess.transform_numpy_recognition(img)
