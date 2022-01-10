@@ -1,14 +1,18 @@
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
+import pandas as pd
 import torch
 import torch.nn as nn
+from PIL import Image
 from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
+import preprocessing.preprocess
 import wandb
 from evaluate import evaluate_recognition
 from feature_extractors.resnet.resnet_model import ResNet
@@ -16,7 +20,9 @@ from utils.data_loading import BasicDatasetRecognition
 
 dir_img_train = Path('../data/perfectly_detected_ears/train/')
 dir_img_test = Path('../data/perfectly_detected_ears/test/')
+dir_img_own_test = Path('../data/unet/')
 dict_id_translation = Path('../data/perfectly_detected_ears/annotations/recognition/ids.csv')
+dict_awe_translation = Path('../data/perfectly_detected_ears/annotations/recognition/awe-translation.csv')
 dir_checkpoint = Path('./checkpoints/')
 
 
@@ -50,7 +56,7 @@ def train_net(net,
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
-                                  architecture="Resnet-own", augmentation="grayscale"))
+                                  architecture="Resnet-own", augmentation="grayscale+edge-detection"))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -73,6 +79,8 @@ def train_net(net,
     criterion = nn.CrossEntropyLoss()
     global_step = 0
 
+    # Init wandb informations
+    wandb_table = wandb.Table(columns=["step", "epoch", "id", "id_prediction"])
     # 5. Begin training
     for epoch in range(epochs):
         net.train()
@@ -116,34 +124,52 @@ def train_net(net,
                 if division_step > 0:
                     if global_step % division_step == 0:
                         histograms = {}
-                        for tag, value in net.named_parameters():
-                            tag = tag.replace('/', '.')
-                            histograms['Weights/' + tag] = wandb.Histogram(value.data.cpu())
-                            histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
+                        # for tag, value in net.named_parameters():
+                        #     tag = tag.replace('/', '.')
+                        #     histograms['Weights/' + tag] = wandb.Histogram(value.data.cpu())
+                        #     histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         val_score = evaluate_recognition(net, val_loader, device)
-                        scheduler.step(val_score)
+                        # scheduler.step(val_score)
 
                         logging.info('Validation Accuracy: {}'.format(val_score))
+                        for i in range(len(images)):
+                            true_id = true_ids[i].nonzero().cpu().item() + 1
+                            pred_id = torch.softmax(ids_pred, dim=1).argmax(dim=1)[i].float().cpu().item() + 1
+                            wandb_table.add_data(global_step, epoch, true_id, pred_id)
+                            # wandb_table.add_data(global_step, epoch, wandb.Image(images[i]), true_id, pred_id)
                         experiment.log({
                             'learning rate': optimizer.param_groups[0]['lr'],
                             'validation accuracy': val_score,
-                            'images': wandb.Image(images[0].cpu()),
-                            'ids': {
-                                # Add one to the original ids, because we converted the starting index to 0
-                                'true': true_ids[0].nonzero().cpu().item() + 1,
-                                'pred': torch.softmax(ids_pred, dim=1).argmax(dim=1)[0].float().cpu().item() + 1,
-                            },
+                            # 'images': wandb.Image(images[0].cpu()),
+                            # 'images': [wandb.Image(im) for im in images],
+                            # [wandb.Image(im) for im in images_t]
+                            # 'ids': {
+                            #     # Add one to the original ids, because we converted the starting index to 0
+                            #     'true': true_ids[0].nonzero().cpu().item() + 1,
+                            #     'pred': torch.softmax(ids_pred, dim=1).argmax(dim=1)[0].float().cpu().item() + 1,
+                            # },
+                            'train predictions': wandb_table,
                             'step': global_step,
                             'epoch': epoch,
                             **histograms
                         })
 
-        if save_checkpoint:
-            Path(dir_checkpoint).mkdir(parents=True, exist_ok=True)
+        if save_checkpoint and (epoch % 5 == 0):
             run_name = experiment.name
-            torch.save(net.state_dict(), str(dir_checkpoint / '{}_cp_epoch{}.pth'.format(run_name, epoch + 1)))
+            model_path = Path.joinpath(dir_checkpoint, Path(run_name))
+            Path(model_path).mkdir(parents=True, exist_ok=True)
+            torch.save(net.state_dict(), str(model_path / '{}_cp_epoch{}.pth'.format(run_name, epoch + 1)))
             logging.info(f'Checkpoint {epoch + 1} saved!')
+    if save_checkpoint:
+        # Log the final model to wandb
+        wandb_model = wandb.Artifact(experiment.name, type="RESNET_Own",
+                                 description="trained model for the own resnet-architecture")
+        final_model_path = Path.joinpath(dir_checkpoint, "final")
+        Path(final_model_path).mkdir(parents=True, exist_ok=True)
+        wandb_model.add_dir(final_model_path)
+        torch.save(net.state_dict(), str(final_model_path / '{}.pth'.format(experiment.name)))
+        experiment.log_artifact(wandb_model)
     return experiment
 
 
@@ -154,6 +180,7 @@ def test_net(net, device, experiment):
     :param device: CUDA device to use
     :param experiment: wandb experiment reference
     """
+    logging.info("Starting neural network test.")
     net.eval()
     # 1. Create dataset
     test_set = BasicDatasetRecognition(dir_img_test, dict_id_translation, net.n_classes)
@@ -164,6 +191,8 @@ def test_net(net, device, experiment):
 
     dataset_length = len(test_set)
 
+    # Init wandb table
+    wandb_table = wandb.Table(columns=["image", "id", "id_prediction"])
     # Helper variable for continuous average calculation
     accuracy = 0.
     # 3. Iterate over test data and compute the average accuracy
@@ -186,23 +215,83 @@ def test_net(net, device, experiment):
             # Calculate accuracy as check how many ids are equivalent
             accuracy += torch.sum(torch.eq(id_pred, id_true)).item()
 
+        for i in range(len(images)):
+            wandb_table.add_data(wandb.Image(images[i]), id_true[i], id_pred[i])
+
     accuracy = accuracy / dataset_length
     print("\n")
     print("Average accuracy:", f"{accuracy:.2%}")
     print("\n")
     if experiment is not None:
         experiment.log({
-            'test accuracy': accuracy
+            'test accuracy': accuracy,
+            'test predictions': wandb_table
+        })
+
+
+def test_net_own_dataset(net, device, experiment):
+    logging.info("Starting neural network test on own dataset.")
+    net.eval()
+    # Load the list of images
+    images = [file for file in os.listdir(dir_img_own_test) if not file.startswith('.')]
+    # Load the csv translation file
+    trans_df = pd.read_csv(dict_awe_translation)
+
+    counter = 0
+    accuracy = 0
+    # Iterate over all the images
+    for img_name in images:
+        img = Image.open(Path.joinpath(dir_img_own_test, img_name))
+        # Apply image equalization
+        img = preprocessing.preprocess.image_equalization_recognition(img)
+
+        # Apply image preprocessing
+        img = preprocessing.preprocess.image_edge_detection(img)
+
+        # Convert to numpy array
+        img_np = preprocessing.preprocess.transform_numpy_recognition(img)
+
+        # Convert to pytorch tensor
+        img_tensor = torch.as_tensor(img_np.copy(), dtype=torch.float32, device=device)
+
+        # Insert dummy batch dimension
+        img_tensor = torch.unsqueeze(img_tensor, dim=0)
+
+        # Generate id prediction from network
+        id_pred = net(img_tensor)
+
+        # Get the resulting ids from the one hot encoded vector
+        id_pred = id_pred.argmax(dim=1).long().item()
+
+        # Load the corresponding id
+        img_name_search = img_name.replace("_", "/")
+        id_true = trans_df.loc[trans_df['Recognition filename'] == img_name_search, "Class ID"].iloc[0]
+
+        # Calculate accuracy as check if ids are equivalent
+        accuracy += int(id_pred == id_true)
+
+        counter += 1
+        if counter % 50 == 0:
+            logging.info("Finished " + str(counter) + " images.")
+    accuracy = accuracy / len(images)
+    print("\n")
+    print("Average accuracy:", f"{accuracy:.2%}")
+    print("\n")
+    if experiment is not None:
+        experiment.log({
+            'test accuracy (own)': accuracy
         })
 
 
 def get_args():
     parser = argparse.ArgumentParser(description='Train the CNN-model on images and target ids')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=1, help='Number of epochs')
+    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=50, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=32, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
+    # parser.add_argument('--load', '-f', type=str, default="checkpoints/final/eager-wood-82.pth", help='Load model from a .pth file')
+
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
@@ -226,6 +315,7 @@ if __name__ == '__main__':
 
     net.to(device=device)
     try:
+        # experiment = None
         experiment = train_net(net=net,
                                epochs=args.epochs,
                                batch_size=args.batch_size,
@@ -233,10 +323,11 @@ if __name__ == '__main__':
                                device=device,
                                val_percent=args.val / 100,
                                amp=args.amp,
-                               save_checkpoint=False)
-        test_net(net=net,
-                 device=device,
-                 experiment=experiment)
+                               save_checkpoint=True)
+        test_net(net=net, device=device, experiment=experiment)
+        test_net_own_dataset(net=net, device=device, experiment=experiment)
+        if experiment is not None:
+            experiment.finish()
     except KeyboardInterrupt:
         torch.save(net.state_dict(), 'INTERRUPTED.pth')
         logging.info('Saved interrupt')
