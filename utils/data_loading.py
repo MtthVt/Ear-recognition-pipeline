@@ -58,7 +58,7 @@ class BasicDatasetDetection(Dataset):
         mask = preprocess.image_equalization(mask, self.scale, is_mask=True)
 
         # Apply image preprocessing
-        img = preprocess.histogram_equalization_rgb(img)
+        # img = preprocess.histogram_equalization_rgb(img)
 
         # Transform to np array for further techniques
         img = preprocess.transform_numpy(img, is_mask=False)
