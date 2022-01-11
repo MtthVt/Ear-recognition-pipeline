@@ -31,9 +31,6 @@ def image_equalization(pil_img, scale, is_mask):
 
     # Convert to RGB if image has other mode (e.g. grayscale, RGBA)
     if not is_mask and pil_img.mode != "RGB":
-        # rgbimg = Image.new("RGB", pil_img.size)
-        # rgbimg.paste(pil_img)
-        # pil_img = rgbimg
         pil_img = pil_img.convert("RGB")
 
     # Resize image to new size if necessary
@@ -56,7 +53,6 @@ def image_equalization_recognition(pil_img):
         pil_img = pil_img.convert('L')
 
     # Resize image to new size if necessary
-    # TODO: Check resize options
     pil_img = pil_img.resize((new_w, new_h), Image.BICUBIC)
     return pil_img
 
