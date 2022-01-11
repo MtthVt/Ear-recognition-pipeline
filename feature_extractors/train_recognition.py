@@ -20,8 +20,9 @@ from utils.data_loading import BasicDatasetRecognition
 
 dir_img_train = Path('../data/perfectly_detected_ears/train/')
 dir_img_test = Path('../data/perfectly_detected_ears/test/')
-dir_img_own_test = Path('../data/unet/')
+dir_img_own_test = Path('../data/unet/segmented')
 dict_id_translation = Path('../data/perfectly_detected_ears/annotations/recognition/ids.csv')
+dict_id_own_translation = Path('../data/unet/ids.csv')
 dict_awe_translation = Path('../data/perfectly_detected_ears/annotations/recognition/awe-translation.csv')
 dir_checkpoint = Path('./checkpoints/')
 
@@ -173,7 +174,7 @@ def train_net(net,
     return experiment
 
 
-def test_net(net, device, experiment):
+def test_net(net, device, experiment, img_test_dir, id_translation_dict, wandb_name='test'):
     """
     Test the given neural network with the help of the training dataset
     :param net: Neural network to test
@@ -183,7 +184,7 @@ def test_net(net, device, experiment):
     logging.info("Starting neural network test.")
     net.eval()
     # 1. Create dataset
-    test_set = BasicDatasetRecognition(dir_img_test, dict_id_translation, net.n_classes)
+    test_set = BasicDatasetRecognition(img_test_dir, id_translation_dict)
 
     # 2. Create data loader
     loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
@@ -206,17 +207,16 @@ def test_net(net, device, experiment):
 
         with torch.no_grad():
             # predict the ids
-            id_pred = net(images)
+            ids_pred = net(images)
 
             # Get the resulting ids from the one hot encoded vector for both
-            id_pred = id_pred.argmax(dim=1).long()
-            id_true = ids_true.argmax(dim=1).long()
+            ids_pred = ids_pred.argmax(dim=1).long()
 
             # Calculate accuracy as check how many ids are equivalent
-            accuracy += torch.sum(torch.eq(id_pred, id_true)).item()
+            accuracy += torch.sum(torch.eq(ids_pred, ids_true)).item()
 
         for i in range(len(images)):
-            wandb_table.add_data(wandb.Image(images[i]), id_true[i], id_pred[i])
+            wandb_table.add_data(wandb.Image(images[i]), ids_true[i], ids_pred[i])
 
     accuracy = accuracy / dataset_length
     print("\n")
@@ -224,8 +224,8 @@ def test_net(net, device, experiment):
     print("\n")
     if experiment is not None:
         experiment.log({
-            'test accuracy': accuracy,
-            'test predictions': wandb_table
+            wandb_name + ' accuracy': accuracy,
+            wandb_name + ' predictions': wandb_table
         })
 
 
@@ -324,8 +324,12 @@ if __name__ == '__main__':
                                val_percent=args.val / 100,
                                amp=args.amp,
                                save_checkpoint=True)
-        test_net(net=net, device=device, experiment=experiment)
-        test_net_own_dataset(net=net, device=device, experiment=experiment)
+        # Evaluate on test data set
+        test_net(net=net, device=device, experiment=experiment,
+                 img_test_dir=dir_img_test, id_translation_dict=dict_id_translation)
+        # Evaluate on the own segmentation dataset
+        test_net(net=net, device=device, experiment=experiment,
+                 img_test_dir=dir_img_own_test, id_translation_dict=dict_id_own_translation)
         if experiment is not None:
             experiment.finish()
     except KeyboardInterrupt:

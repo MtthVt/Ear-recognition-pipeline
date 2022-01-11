@@ -1,3 +1,4 @@
+import csv
 import os
 from os import listdir
 from pathlib import Path
@@ -116,6 +117,20 @@ def prepare_img_nn(img):
     return img, img_tensor
 
 
+def generate_ids_dict(awe_translation_csv: str, result_ids: str):
+    # Read the awe translation file
+    trans_df = pd.read_csv(awe_translation_csv)
+
+    with open(result_ids, 'w', newline='') as csvfile:
+        idwriter = csv.writer(csvfile)
+        # Iterate over every entry
+        for index, row in trans_df.iterrows():
+            rec_filename = "segmented/" + row['Recognition filename'].replace("/", "_")
+            class_id = row['Class ID']
+            print(rec_filename, class_id)
+            idwriter.writerow([rec_filename, class_id])
+
+
 if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Load the pre-trained model
@@ -128,3 +143,5 @@ if __name__ == "__main__":
     dict_id_translation = Path('data/perfectly_detected_ears/annotations/recognition/awe-translation.csv')
     export_path = Path('data/unet/')
     export_detected_ears(net, dir_img_test, dict_id_translation, export_path)
+    generate_ids_dict('data/perfectly_detected_ears/annotations/recognition/awe-translation.csv',
+                      'data/unet/ids.csv')
