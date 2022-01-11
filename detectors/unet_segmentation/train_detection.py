@@ -33,7 +33,6 @@ def train_net(net,
               learning_rate: float = 0.001,
               val_percent: float = 0.1,
               save_checkpoint: bool = True,
-              img_scale: float = 0.5,
               amp: bool = False):
     # 1. Create dataset
     dataset = TransformDatasetDetection(dir_img_train, dir_mask, length=750, scale=img_scale)
@@ -67,7 +66,7 @@ def train_net(net,
     # (Initialize logging)
     experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
-                                  val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
+                                  val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
                                   cross_entropy_weight=cross_entropy_weight, architecture="UNET",
                                   augmentation="Transform_less_noaffine"))
@@ -235,7 +234,6 @@ def get_args():
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.0001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    parser.add_argument('--scale', '-s', type=float, default=1.0, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
