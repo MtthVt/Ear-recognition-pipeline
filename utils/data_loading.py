@@ -116,10 +116,9 @@ class BasicDatasetRecognition(Dataset):
     Preferred dataset to be used with the recognition task.
     """
 
-    def __init__(self, images_dir: Path, dict_id_translation: Path, num_classes: int):
+    def __init__(self, images_dir: Path, dict_id_translation: Path):
         self.images_dir = str(images_dir)
         self.dict_id_translation = dict_id_translation
-        self.num_classes = num_classes
 
         # Save every filename with the last folder name (train/test) in list
         self.last_folder_name = os.path.basename(os.path.normpath(images_dir))
@@ -142,28 +141,28 @@ class BasicDatasetRecognition(Dataset):
 
     def __getitem__(self, idx):
         img_file = self.img_files[idx]
+
+        # load id from dict with given filename - convert to tensor
         id_img = int(self.id_dict[self.last_folder_name + '/' + img_file])
         id_img -= 1  # Ids for the dataset start at 1, while our vector starts at 0
-        # convert id to one hot encoded tensor
         id_img = torch.as_tensor(id_img).long()
-        id_img = F.one_hot(id_img, num_classes=self.num_classes)
 
         # Load the image and apply preprocessing techniques
         img = self.load(self.images_dir + '/' + img_file)
 
+        # Apply image preprocessing
+        # img = preprocess.histogram_equalization_rgb(img)
+        # img = preprocess.image_edge_detection(img)
+
         # Apply image equalization
         img = preprocess.image_equalization_recognition(img)
 
-        # Apply image preprocessing
-        # img = preprocess.histogram_equalization_rgb(img)
-        img = preprocess.image_edge_detection(img)
-
-        # Transform to np array for further techniques
-        img = preprocess.transform_numpy_recognition(img)
+        # Transform to tensor for further techniques
+        img_tensor = preprocess.transform_tensor(img)
 
         return {
-            'image': torch.as_tensor(img.copy()).float(),
-            'id': id_img.float()
+            'image': img_tensor,
+            'id': id_img
         }
 
 
@@ -171,6 +170,6 @@ if __name__ == "__main__":
     # tmp = BasicDatasetRecognition("../data/perfectly_detected_ears/train",
     #                               "../data/perfectly_detected_ears/annotations/recognition/ids.csv")
     detection = TransformDatasetDetection(Path("../data/ears/train"),
-                                        Path("../data/ears/annotations/segmentation/train"), 750)
+                                          Path("../data/ears/annotations/segmentation/train"), 750)
     for i in range(10):
         detection.__getitem__(i)

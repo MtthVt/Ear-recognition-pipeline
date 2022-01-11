@@ -66,9 +66,8 @@ def evaluate_recognition(net, dataloader, device):
             # predict the ids
             id_pred = net(image)
 
-            # Get the resulting ids from both
+            # Get the resulting ids from the prediction
             id_pred = id_pred.argmax(dim=1).long()
-            id_true = id_true.argmax(dim=1).long()
 
             # Calculate the number of matching ids (predict/true)
             acc_count += torch.sum(torch.eq(id_pred, id_true)).item()

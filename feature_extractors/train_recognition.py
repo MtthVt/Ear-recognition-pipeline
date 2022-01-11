@@ -35,7 +35,7 @@ def train_net(net,
               save_checkpoint: bool = True,
               amp: bool = False):
     # 1. Create dataset
-    dataset = BasicDatasetRecognition(dir_img_train, dict_id_translation, net.n_classes)
+    dataset = BasicDatasetRecognition(dir_img_train, dict_id_translation)
 
     # 2. Split into train / validation partitions
     n_val = int(len(dataset) * val_percent)
@@ -94,7 +94,7 @@ def train_net(net,
                 true_ids = batch['id']
 
                 images = images.to(device=device, dtype=torch.float32)
-                true_ids = true_ids.to(device=device, dtype=torch.float32)
+                true_ids = true_ids.to(device=device, dtype=torch.long)
 
                 with torch.cuda.amp.autocast(enabled=amp):
                     # Get nn prediction and compute loss
@@ -134,7 +134,7 @@ def train_net(net,
 
                         logging.info('Validation Accuracy: {}'.format(val_score))
                         for i in range(len(images)):
-                            true_id = true_ids[i].nonzero().cpu().item() + 1
+                            true_id = true_ids[i].cpu().item() + 1
                             pred_id = torch.softmax(ids_pred, dim=1).argmax(dim=1)[i].float().cpu().item() + 1
                             wandb_table.add_data(global_step, epoch, true_id, pred_id)
                             # wandb_table.add_data(global_step, epoch, wandb.Image(images[i]), true_id, pred_id)
@@ -164,7 +164,7 @@ def train_net(net,
     if save_checkpoint:
         # Log the final model to wandb
         wandb_model = wandb.Artifact(experiment.name, type="RESNET_Own",
-                                 description="trained model for the own resnet-architecture")
+                                     description="trained model for the own resnet-architecture")
         final_model_path = Path.joinpath(dir_checkpoint, "final")
         Path(final_model_path).mkdir(parents=True, exist_ok=True)
         wandb_model.add_dir(final_model_path)

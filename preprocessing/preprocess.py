@@ -57,19 +57,17 @@ def image_equalization_recognition(pil_img):
     return pil_img
 
 
-def transform_numpy_recognition(pil_img):
+def transform_tensor(img, isMask: bool = False):
     """
-    Transform the PIL image to numpy array. Normalize to [0,1] & convert array structure to fit NN.
+    Receives a PIL image "img" and transforms it into a tensor.
+    If it is a mask, delete the channel dimension.
     """
-    img_ndarray = np.asarray(pil_img)
-
-    # Convert image to fit to neural network dimension structure
-    img_ndarray = np.expand_dims(img_ndarray, 0)
-
-    # Normalize pixel values to [0, 1]
-    img_ndarray = img_ndarray / 255
-
-    return img_ndarray
+    tensor = tv.transforms.ToTensor()(img)
+    if isMask:
+        # Squeeze "channel" dimension, convert to long
+        tensor = torch.squeeze(tensor, dim=0)
+        tensor = tensor.type(torch.LongTensor)
+    return tensor
 
 
 def image_augmentation(image, mask):
@@ -179,16 +177,3 @@ class Preprocess:
         return img
 
     # Add your own preprocessing techniques here.
-
-
-def transform_tensor(img, isMask: bool = False):
-    """
-    Receives a PIL image "img" and transforms it into a tensor.
-    If it is a mask, delete the channel dimension.
-    """
-    tensor = tv.transforms.ToTensor()(img)
-    if isMask:
-        # Squeeze "channel" dimension, convert to long
-        tensor = torch.squeeze(tensor, dim=0)
-        tensor = tensor.type(torch.LongTensor)
-    return tensor
