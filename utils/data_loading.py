@@ -15,9 +15,9 @@ from preprocessing import preprocess
 
 
 class BasicDatasetDetection(Dataset):
-    def __init__(self, images_dir: str, masks_dir: str, scale: float = 1.0, mask_suffix: str = ''):
-        self.images_dir = Path(images_dir)
-        self.masks_dir = Path(masks_dir)
+    def __init__(self, images_dir: Path, masks_dir: Path, scale: float = 1.0, mask_suffix: str = ''):
+        self.images_dir = images_dir
+        self.masks_dir = masks_dir
         assert 0 < scale <= 1, 'Scale must be between 0 and 1'
         self.scale = scale
         self.mask_suffix = mask_suffix
@@ -61,12 +61,13 @@ class BasicDatasetDetection(Dataset):
         # img = preprocess.histogram_equalization_rgb(img)
 
         # Transform to np array for further techniques
-        img = preprocess.transform_numpy(img, is_mask=False)
-        mask = preprocess.transform_numpy(mask, is_mask=True)
+        img_tensor = preprocess.transform_tensor(img)
+
+        mask_tensor = preprocess.transform_tensor(mask, isMask=True)
 
         return {
-            'image': torch.as_tensor(img.copy()).float().contiguous(),
-            'mask': torch.as_tensor(mask.copy()).long().contiguous()
+            'image': img_tensor.contiguous(),
+            'mask': mask_tensor.contiguous()
         }
 
 
@@ -94,14 +95,15 @@ class TransformDatasetDetection(BasicDatasetDetection):
         mask = preprocess.image_equalization(mask, self.scale, is_mask=True)
 
         # Apply image preprocessing
-        img = preprocess.histogram_equalization_rgb(img)
+        # img = preprocess.histogram_equalization_rgb(img)
 
-        # Transform to np array for further techniques
-        img = preprocess.transform_numpy(img, is_mask=False)
-        mask = preprocess.transform_numpy(mask, is_mask=True)
+        # Transform to tensor for further techniques
+        img_tensor = preprocess.transform_tensor(img)
+
+        mask_tensor = preprocess.transform_tensor(mask, isMask=True)
 
         # Use image augmentation
-        img, msk = preprocess.image_augmentation(img, mask)
+        img, msk = preprocess.image_augmentation(img_tensor, mask_tensor)
 
         return {
             'image': img.float().contiguous(),
@@ -166,5 +168,9 @@ class BasicDatasetRecognition(Dataset):
 
 
 if __name__ == "__main__":
-    tmp = BasicDatasetRecognition("../data/perfectly_detected_ears/train",
-                                  "../data/perfectly_detected_ears/annotations/recognition/ids.csv")
+    # tmp = BasicDatasetRecognition("../data/perfectly_detected_ears/train",
+    #                               "../data/perfectly_detected_ears/annotations/recognition/ids.csv")
+    detection = TransformDatasetDetection(Path("../data/ears/train"),
+                                        Path("../data/ears/annotations/segmentation/train"), 750)
+    for i in range(10):
+        detection.__getitem__(i)

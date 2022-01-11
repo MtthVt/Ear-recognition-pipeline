@@ -70,7 +70,7 @@ def train_net(net,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
                                   cross_entropy_weight=cross_entropy_weight, architecture="UNET",
-                                  augmentation="Transform"))
+                                  augmentation="Transform_less_noaffine"))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -152,11 +152,11 @@ def train_net(net,
                         experiment.log({
                             'learning rate': optimizer.param_groups[0]['lr'],
                             'validation Dice': val_score,
-                            'images': wandb.Image(images[0].cpu()),
-                            'masks': {
-                                'true': wandb.Image(true_masks[0].float().cpu()),
-                                'pred': wandb.Image(torch.softmax(masks_pred, dim=1).argmax(dim=1)[0].float().cpu()),
-                            },
+                            # 'images': wandb.Image(images[0].cpu()),
+                            # 'masks': {
+                            #     'true': wandb.Image(true_masks[0].cpu()),
+                            #     'pred': wandb.Image(torch.softmax(masks_pred, dim=1).argmax(dim=1)[0].float().cpu()),
+                            # },
                             'step': global_step,
                             'epoch': epoch,
                             **histograms
@@ -277,6 +277,12 @@ if __name__ == '__main__':
                                img_scale=args.scale,
                                val_percent=args.val / 100,
                                amp=args.amp)
+        # for i in range(20,29):
+        #     experiment = None
+        #     run_name = "rose-wildflower-76"
+        #     checkpoint = str(dir_checkpoint / '{}_cp_epoch{}.pth'.format(run_name, i))
+        #     print("Evaluate " + checkpoint)
+        #     net.load_state_dict(torch.load(checkpoint, map_location=device))
         test_net(net=net,
                  device=device,
                  experiment=experiment)

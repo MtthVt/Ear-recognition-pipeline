@@ -1,7 +1,10 @@
+import random
+
 import cv2
 import numpy as np
 import torch
 import torchvision as tv
+import torchvision.transforms.functional as TF
 from PIL import Image, ImageOps, ImageFilter
 
 
@@ -28,9 +31,10 @@ def image_equalization(pil_img, scale, is_mask):
 
     # Convert to RGB if image has other mode (e.g. grayscale, RGBA)
     if not is_mask and pil_img.mode != "RGB":
-        rgbimg = Image.new("RGB", pil_img.size)
-        rgbimg.paste(pil_img)
-        pil_img = rgbimg
+        # rgbimg = Image.new("RGB", pil_img.size)
+        # rgbimg.paste(pil_img)
+        # pil_img = rgbimg
+        pil_img = pil_img.convert("RGB")
 
     # Resize image to new size if necessary
     pil_img = pil_img.resize((newW, newH), resample=Image.NEAREST if is_mask else Image.BICUBIC)
@@ -57,22 +61,6 @@ def image_equalization_recognition(pil_img):
     return pil_img
 
 
-def transform_numpy(pil_img, is_mask):
-    """
-    Transform the PIL image to numpy array. Normalize to [0,1] & convert array structure to fit NN.
-    """
-    img_ndarray = np.asarray(pil_img)
-
-    # Convert image to fit to neural network dimension structure
-    if not is_mask:
-        img_ndarray = img_ndarray.transpose((2, 0, 1))
-
-    # Normalize pixel values to [0, 1]
-    img_ndarray = img_ndarray / 255
-
-    return img_ndarray
-
-
 def transform_numpy_recognition(pil_img):
     """
     Transform the PIL image to numpy array. Normalize to [0,1] & convert array structure to fit NN.
@@ -88,43 +76,45 @@ def transform_numpy_recognition(pil_img):
     return img_ndarray
 
 
-def image_augmentation(img, mask):
+def image_augmentation(image, mask):
     """
     Apply different Image augmentation techniques (RandomAffine, RandomHorizontal/VerticalFlip, RandomPerspective, RandomRotation)
     Apply to img & msk simultaneously.
     """
-    image_transformations = tv.transforms.RandomChoice(
-        [tv.transforms.RandomAffine([0, 359], fillcolor=None), tv.transforms.RandomHorizontalFlip(p=0.2),
-         tv.transforms.RandomPerspective(p=0.2), tv.transforms.RandomRotation(degrees=[0, 359]),
-         tv.transforms.RandomVerticalFlip(p=0.2), tv.transforms.ColorJitter()])
+    # add dummy channel dim to mask
+    mask = torch.unsqueeze(mask, 0)
 
-    transform = tv.transforms.Compose([image_transformations])
+    # Random crop
+    i, j, h, w = tv.transforms.RandomCrop.get_params(
+        image, output_size=(340, 460))
+    image = TF.crop(image, i, j, h, w)
+    mask = TF.crop(mask, i, j, h, w)
 
-    # Convert mask to 3 dimensional image (for transformation purpose)
-    msk_img = Image.fromarray(mask * 255)
-    # Convert mask to 3 dimensional image
-    msk_img = msk_img.convert("RGB")
-    msk_tensor = tv.transforms.ToTensor()(np.array(msk_img))
-    img_tensor = torch.as_tensor(img.copy()).float().contiguous()
-    # Stack the two tensors onto each other to get same transformations for both
-    img_msk = torch.stack([img_tensor, msk_tensor])
-    # Apply transformations
-    img_msk = transform(img_msk)
+    # Random affine
+    # angle, trnsl, scale, shear = tv.transforms.RandomAffine.get_params(
+    #     [0, 359], None, None, None, None)
+    # image = TF.affine(image, angle, trnsl, scale, shear)
+    # mask = TF.affine(mask, angle, trnsl, scale, shear)
 
-    # Get back the original tensors
-    img = img_msk[0]
-    msk = img_msk[1]
-    # Convert msk back to grayscale/0 dimension
-    msk_img = tv.transforms.ToPILImage()(msk)
-    msk_img = msk_img.convert("L")
-    msk = tv.transforms.ToTensor()(np.array(msk_img))
-    # Omit single dimension
-    msk = torch.squeeze(msk)
+    # Random horizontal flipping
+    if random.random() > 0.5:
+        image = TF.hflip(image)
+        mask = TF.hflip(mask)
+
+    # Random vertical flipping
+    if random.random() > 0.5:
+        image = TF.vflip(image)
+        mask = TF.vflip(mask)
+
+    # Squeeze the mask back
+    mask = torch.squeeze(mask, dim=0)
 
     # Optional: Plot the pictures
-    # tv.transforms.ToPILImage()(img).show()
-    # tv.transforms.ToPILImage()(msk * 255).show()
-    return img, msk
+    # tv.transforms.ToPILImage()(image).show()
+    # mask_show = mask.type(torch.uint8)
+    # tv.transforms.ToPILImage()(mask_show * 255).show()
+
+    return image, mask
 
 
 def image_edge_detection(imageObject):
@@ -177,7 +167,6 @@ def image_edge_detection(imageObject):
     return imageWithEdges
 
 
-
 class Preprocess:
 
     def histogram_equlization_rgb(self, img):
@@ -194,3 +183,16 @@ class Preprocess:
         return img
 
     # Add your own preprocessing techniques here.
+
+
+def transform_tensor(img, isMask: bool = False):
+    """
+    Receives a PIL image "img" and transforms it into a tensor.
+    If it is a mask, delete the channel dimension.
+    """
+    tensor = tv.transforms.ToTensor()(img)
+    if isMask:
+        # Squeeze "channel" dimension, convert to long
+        tensor = torch.squeeze(tensor, dim=0)
+        tensor = tensor.type(torch.LongTensor)
+    return tensor
