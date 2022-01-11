@@ -47,10 +47,6 @@ class ResNet(nn.Module):
 
         self.fully2 = nn.Linear(256, n_classes)
 
-        self.sigmoid = nn.Sigmoid()
-
-        self.softmax = nn.Softmax(dim=1)
-
     def calc_pad(self, kernel_size):
         # Attention: This does not apply for even kernel sizes! (Asymmetric padding would be needed then.)
         return int((kernel_size - 1) / 2)
@@ -86,9 +82,5 @@ class ResNet(nn.Module):
         x = self.dropout2(x)
 
         x = self.fully2(x)
-
-        x = self.sigmoid(x)
-
-        x = self.softmax(x)
 
         return x
