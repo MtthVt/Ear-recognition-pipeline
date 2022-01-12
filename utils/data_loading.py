@@ -152,7 +152,7 @@ class BasicDatasetRecognition(Dataset):
 
         # Apply image preprocessing
         # img = preprocess.histogram_equalization_rgb(img)
-        # img = preprocess.image_edge_detection(img)
+        img = preprocess.image_edge_detection(img)
 
         # Apply image equalization
         img = preprocess.image_equalization_recognition(img)

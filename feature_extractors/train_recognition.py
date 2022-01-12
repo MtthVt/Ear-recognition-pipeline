@@ -58,7 +58,7 @@ def train_net(net,
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
-                                  architecture="Resnet-Own", augmentation="None"))
+                                  architecture="Resnet-Own", augmentation="edge-image"))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -319,7 +319,7 @@ if __name__ == '__main__':
     logging.info(f'Using device {device}')
 
     # Change here to adapt to your data
-    net = ResNet(n_classes=100, in_channels=3)
+    net = ResNet(n_classes=100, in_channels=1)
 
     # Resnet32 - pretrained
     # net = tv.models.resnet34(pretrained=True)

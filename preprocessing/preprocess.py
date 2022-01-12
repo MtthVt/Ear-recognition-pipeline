@@ -49,8 +49,8 @@ def image_equalization_recognition(pil_img):
     new_w, new_h = 64, 128
 
     # Convert to RGB if image has other mode (e.g. grayscale, RGBA)
-    if pil_img.mode != 'RGB':
-        pil_img = pil_img.convert('RGB')
+    if pil_img.mode != 'L':
+        pil_img = pil_img.convert('L')
 
     # Resize image to new size if necessary
     pil_img = pil_img.resize((new_w, new_h), Image.BICUBIC)
@@ -122,7 +122,7 @@ def image_edge_detection(imageObject):
 
     # Find the edges by applying the filter ImageFilter.FIND_EDGES
 
-    img = imageObject.convert('RGB')
+    img = imageObject.convert('L')
     imageWithEdges = img.filter(ImageFilter.FIND_EDGES)
 
     # # Show original image - before applying edge enhancement filters
