@@ -299,6 +299,17 @@ def get_args():
 
     return parser.parse_args()
 
+def evaluate_multiple_checkpoints(net, device):
+    run_name = "vital-sun-106"
+    for i in range(30, 50+1):
+        logging.info("Evaluate checkpoint " + str(i))
+        net.load_state_dict(torch.load(str("checkpoints/{}/{}_cp_epoch{}.pth".format(run_name, run_name, i)), map_location=device))
+        net.to(device=device)
+        test_net(net=net, device=device, experiment=None,
+                 img_test_dir=Path('../data/unet/detection'),
+                 id_translation_dict=Path('../data/unet/ids_detection.csv'),
+                 wandb_name="own_detection")
+
 
 if __name__ == '__main__':
     args = get_args()
