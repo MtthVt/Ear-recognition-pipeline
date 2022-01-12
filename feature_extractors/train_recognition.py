@@ -58,7 +58,7 @@ def train_net(net,
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
-                                  architecture="Resnet-own", augmentation="grayscale+edge-detection"))
+                                  architecture="Inceptionv3-pretrained", augmentation="None"))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -100,7 +100,7 @@ def train_net(net,
 
                 with torch.cuda.amp.autocast(enabled=amp):
                     # Get nn prediction and compute loss
-                    ids_pred = net(images)
+                    ids_pred = net(images)[0]
                     loss = criterion(ids_pred, true_ids)
 
                 optimizer.zero_grad(set_to_none=True)
@@ -320,8 +320,10 @@ if __name__ == '__main__':
 
     # Change here to adapt to your data
     # net = ResNet(n_classes=100)
-    net = tv.models.resnet34(pretrained=True)
-    net.fc = nn.Linear(in_features=512, out_features=100)
+    net = tv.models.inception_v3(pretrained=True, transform_input=True)
+    net.fc = nn.Linear(in_features=2048, out_features=100)
+
+    # evaluate_multiple_checkpoints(net, device)
 
     if args.load:
         net.load_state_dict(torch.load(args.load, map_location=device))
@@ -349,7 +351,7 @@ if __name__ == '__main__':
         test_net(net=net, device=device, experiment=experiment,
                  img_test_dir=Path('../data/unet/detection'),
                  id_translation_dict=Path('../data/unet/ids_detection.csv'),
-                 wandb_name="own_segmentation")
+                 wandb_name="own_detection")
         if experiment is not None:
             experiment.finish()
     except KeyboardInterrupt:
