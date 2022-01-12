@@ -10,6 +10,7 @@ import torch.nn as nn
 from PIL import Image
 from torch import optim
 from torch.utils.data import DataLoader, random_split
+import torchvision as tv
 from tqdm import tqdm
 
 import preprocessing.preprocess
@@ -290,7 +291,7 @@ def get_args():
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.0001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    # parser.add_argument('--load', '-f', type=str, default="checkpoints/final/eager-wood-82.pth", help='Load model from a .pth file')
+    # parser.add_argument('--load', '-f', type=str, default="checkpoints/final/colorful-bird-98.pth", help='Load model from a .pth file')
 
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
@@ -307,7 +308,9 @@ if __name__ == '__main__':
     logging.info(f'Using device {device}')
 
     # Change here to adapt to your data
-    net = ResNet(n_classes=100)
+    # net = ResNet(n_classes=100)
+    net = tv.models.resnet34(pretrained=True)
+    net.fc = nn.Linear(in_features=512, out_features=100)
 
     if args.load:
         net.load_state_dict(torch.load(args.load, map_location=device))
@@ -329,7 +332,13 @@ if __name__ == '__main__':
                  img_test_dir=dir_img_test, id_translation_dict=dict_id_translation)
         # Evaluate on the own segmentation dataset
         test_net(net=net, device=device, experiment=experiment,
-                 img_test_dir=dir_img_own_test, id_translation_dict=dict_id_own_translation)
+                 img_test_dir=dir_img_own_test, id_translation_dict=dict_id_own_translation,
+                 wandb_name="own_segmentation")
+        # Evaluate on the own detection dataset
+        test_net(net=net, device=device, experiment=experiment,
+                 img_test_dir=Path('../data/unet/detection'),
+                 id_translation_dict=Path('../data/unet/ids_detection.csv'),
+                 wandb_name="own_segmentation")
         if experiment is not None:
             experiment.finish()
     except KeyboardInterrupt:
