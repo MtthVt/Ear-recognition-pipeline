@@ -58,7 +58,7 @@ def train_net(net,
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
-                                  architecture="Inceptionv3-pretrained", augmentation="None"))
+                                  architecture="Resnet-Own", augmentation="None"))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -100,7 +100,7 @@ def train_net(net,
 
                 with torch.cuda.amp.autocast(enabled=amp):
                     # Get nn prediction and compute loss
-                    ids_pred = net(images)[0]
+                    ids_pred = net(images)
                     loss = criterion(ids_pred, true_ids)
 
                 optimizer.zero_grad(set_to_none=True)
@@ -319,9 +319,15 @@ if __name__ == '__main__':
     logging.info(f'Using device {device}')
 
     # Change here to adapt to your data
-    # net = ResNet(n_classes=100)
-    net = tv.models.inception_v3(pretrained=True, transform_input=True)
-    net.fc = nn.Linear(in_features=2048, out_features=100)
+    net = ResNet(n_classes=100, in_channels=3)
+
+    # Resnet32 - pretrained
+    # net = tv.models.resnet34(pretrained=True)
+    # net.fc = nn.Linear(in_features=512, out_features=100)
+
+    # Incpetion v3
+    # net = tv.models.inception_v3(pretrained=True, transform_input=True)
+    # net.fc = nn.Linear(in_features=2048, out_features=100)
 
     # evaluate_multiple_checkpoints(net, device)
 

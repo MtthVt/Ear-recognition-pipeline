@@ -4,11 +4,11 @@ from .resblock import ResBlock
 
 
 class ResNet(nn.Module):
-    def __init__(self, n_classes):
+    def __init__(self, n_classes, in_channels):
         super().__init__()
         self.n_classes = n_classes
 
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=1,
+        self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=64, kernel_size=3, stride=1,
                                padding=self.calc_pad(kernel_size=3))
 
         self.dropout = nn.Dropout2d(p=0.05)
