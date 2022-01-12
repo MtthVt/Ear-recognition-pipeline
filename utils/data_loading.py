@@ -63,7 +63,7 @@ class BasicDatasetDetection(Dataset):
         # Transform to np array for further techniques
         img_tensor = preprocess.transform_tensor(img)
 
-        mask_tensor = preprocess.transform_tensor(mask, isMask=True)
+        mask_tensor = preprocess.transform_tensor(mask, is_mask=True)
 
         return {
             'image': img_tensor.contiguous(),
@@ -100,7 +100,7 @@ class TransformDatasetDetection(BasicDatasetDetection):
         # Transform to tensor for further techniques
         img_tensor = preprocess.transform_tensor(img)
 
-        mask_tensor = preprocess.transform_tensor(mask, isMask=True)
+        mask_tensor = preprocess.transform_tensor(mask, is_mask=True)
 
         # Use image augmentation
         img, msk = preprocess.image_augmentation(img_tensor, mask_tensor)

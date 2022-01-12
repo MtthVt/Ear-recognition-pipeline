@@ -57,13 +57,13 @@ def image_equalization_recognition(pil_img):
     return pil_img
 
 
-def transform_tensor(img, isMask: bool = False):
+def transform_tensor(img, is_mask: bool = False):
     """
     Receives a PIL image "img" and transforms it into a tensor.
     If it is a mask, delete the channel dimension.
     """
     tensor = tv.transforms.ToTensor()(img)
-    if isMask:
+    if is_mask:
         # Squeeze "channel" dimension, convert to long
         tensor = torch.squeeze(tensor, dim=0)
         tensor = tensor.type(torch.LongTensor)

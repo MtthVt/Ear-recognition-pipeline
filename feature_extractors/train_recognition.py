@@ -157,7 +157,7 @@ def train_net(net,
                             **histograms
                         })
 
-        if save_checkpoint and (epoch % 5 == 0):
+        if save_checkpoint:
             run_name = experiment.name
             model_path = Path.joinpath(dir_checkpoint, Path(run_name))
             Path(model_path).mkdir(parents=True, exist_ok=True)

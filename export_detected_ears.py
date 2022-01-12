@@ -29,6 +29,9 @@ def export_detected_ears(detect_model, dir_img: Path, dict_translation: Path, sa
     trans_df = pd.read_csv(dict_translation)
     last_folder_name = os.path.basename(os.path.normpath(dir_img))
 
+    # Create export folder
+    Path(save_path).mkdir(parents=True, exist_ok=True)
+
     counter = 0
     # Iterate over all the images
     for img_name in images:
@@ -88,29 +91,30 @@ def extract_mask_from_image(img, mask_np):
         right = pil_msk.size[0]
         top = pil_msk.size[1]
 
-    # Split the original image into three channels
-    img_bands = img.split()
-    res_img_bands = list()
-    # Apply bitwise and for all the channels, convert back to 8-bit because bitwise & converts to 32-bit
-    for i in range(len(img_bands)):
-        res_img_bands.append(
-            ImageMath.eval("convert(a & b, 'L')", a=img_bands[i], b=pil_msk).crop((left, bottom, right, top)))
-        # img_bands[i].show()
-        # res_img_bands[i].show()
-    # Merge the channels back together to get resulting image
-    res_img = Image.merge(mode="RGB", bands=res_img_bands)
-    # res_img.show()
+    segmentation = True
+    if segmentation:
+        # Split the original image into three channels
+        img_bands = img.split()
+        res_img_bands = list()
+        # Apply bitwise and for all the channels, convert back to 8-bit because bitwise & converts to 32-bit
+        for i in range(len(img_bands)):
+            res_img_bands.append(
+                ImageMath.eval("convert(a & b, 'L')", a=img_bands[i], b=pil_msk).crop((left, bottom, right, top)))
+            # img_bands[i].show()
+            # res_img_bands[i].show()
+        # Merge the channels back together to get resulting image
+        res_img = Image.merge(mode="RGB", bands=res_img_bands)
+        # res_img.show()
+    else:
+        res_img = img.crop((left, bottom, right, top))
     return res_img
 
 
 def prepare_img_nn(img):
     img = preprocess.image_equalization(img, scale=1, is_mask=False)
 
-    # Transform to np array for further techniques
-    img_tensor = preprocess.transform_numpy(img, is_mask=False)
-
     # Convert to pytorch tensor
-    img_tensor = torch.as_tensor(img_tensor.copy()).float().contiguous()
+    img_tensor = preprocess.transform_tensor(img, is_mask=False)
 
     # Insert dummy batch dimension
     img_tensor = torch.unsqueeze(img_tensor, dim=0)
@@ -135,13 +139,13 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     # Load the pre-trained model
     net = UNet(n_channels=3, n_classes=2, bilinear=True)
-    checkpoint = 'detectors/unet_segmentation/checkpoints/UNET_ADAM_little_loss_optim_NOHISTOGRAM.pth'
+    checkpoint = 'detectors/unet_segmentation/checkpoints/final/rose-wildflower-76.pth'
     net.load_state_dict(torch.load(checkpoint, map_location=device))
 
     # Image directory
     dir_img_test = Path('data/ears/test/')
     dict_id_translation = Path('data/perfectly_detected_ears/annotations/recognition/awe-translation.csv')
-    export_path = Path('data/unet/')
+    export_path = Path('data/unet/segmented')
     export_detected_ears(net, dir_img_test, dict_id_translation, export_path)
     generate_ids_dict('data/perfectly_detected_ears/annotations/recognition/awe-translation.csv',
                       'data/unet/ids.csv')
