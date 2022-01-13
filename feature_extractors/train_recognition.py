@@ -49,7 +49,7 @@ def train_net(net,
     eps = 1e-08
 
     # (Initialize logging)
-    experiment = wandb.init(project='Ear-Recognition', resume='allow', entity='min0x')
+    experiment = wandb.init(project='Ear-Recognition', resume='allow', anonymous='must')
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
                                   val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
