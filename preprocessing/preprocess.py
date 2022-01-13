@@ -45,10 +45,9 @@ def image_equalization_recognition(pil_img):
     :param pil_img: PIL image to transform
     :return: transformed PIL image
     """
-    # TODO:Insert here the desired image format
     new_w, new_h = 64, 128
 
-    # Convert to RGB if image has other mode (e.g. grayscale, RGBA)
+    # Convert to grayscale if image has other mode (e.g. RGB, RGBA)
     if pil_img.mode != 'L':
         pil_img = pil_img.convert('L')
 

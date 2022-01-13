@@ -1,19 +1,14 @@
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
-import pandas as pd
 import torch
 import torch.nn as nn
-from PIL import Image
 from torch import optim
 from torch.utils.data import DataLoader, random_split
-import torchvision as tv
 from tqdm import tqdm
 
-import preprocessing.preprocess
 import wandb
 from evaluate import evaluate_recognition
 from feature_extractors.resnet.resnet_model import ResNet
@@ -230,60 +225,6 @@ def test_net(net, device, experiment, img_test_dir, id_translation_dict, wandb_n
         })
 
 
-def test_net_own_dataset(net, device, experiment):
-    logging.info("Starting neural network test on own dataset.")
-    net.eval()
-    # Load the list of images
-    images = [file for file in os.listdir(dir_img_own_test) if not file.startswith('.')]
-    # Load the csv translation file
-    trans_df = pd.read_csv(dict_awe_translation)
-
-    counter = 0
-    accuracy = 0
-    # Iterate over all the images
-    for img_name in images:
-        img = Image.open(Path.joinpath(dir_img_own_test, img_name))
-        # Apply image equalization
-        img = preprocessing.preprocess.image_equalization_recognition(img)
-
-        # Apply image preprocessing
-        img = preprocessing.preprocess.image_edge_detection(img)
-
-        # Convert to numpy array
-        img_np = preprocessing.preprocess.transform_numpy_recognition(img)
-
-        # Convert to pytorch tensor
-        img_tensor = torch.as_tensor(img_np.copy(), dtype=torch.float32, device=device)
-
-        # Insert dummy batch dimension
-        img_tensor = torch.unsqueeze(img_tensor, dim=0)
-
-        # Generate id prediction from network
-        id_pred = net(img_tensor)
-
-        # Get the resulting ids from the one hot encoded vector
-        id_pred = id_pred.argmax(dim=1).long().item()
-
-        # Load the corresponding id
-        img_name_search = img_name.replace("_", "/")
-        id_true = trans_df.loc[trans_df['Recognition filename'] == img_name_search, "Class ID"].iloc[0]
-
-        # Calculate accuracy as check if ids are equivalent
-        accuracy += int(id_pred == id_true)
-
-        counter += 1
-        if counter % 50 == 0:
-            logging.info("Finished " + str(counter) + " images.")
-    accuracy = accuracy / len(images)
-    print("\n")
-    print("Average accuracy:", f"{accuracy:.2%}")
-    print("\n")
-    if experiment is not None:
-        experiment.log({
-            'test accuracy (own)': accuracy
-        })
-
-
 def get_args():
     parser = argparse.ArgumentParser(description='Train the CNN-model on images and target ids')
     parser.add_argument('--epochs', '-e', metavar='E', type=int, default=50, help='Number of epochs')
@@ -299,11 +240,13 @@ def get_args():
 
     return parser.parse_args()
 
+
 def evaluate_multiple_checkpoints(net, device):
     run_name = "vital-sun-106"
-    for i in range(30, 50+1):
+    for i in range(30, 50 + 1):
         logging.info("Evaluate checkpoint " + str(i))
-        net.load_state_dict(torch.load(str("checkpoints/{}/{}_cp_epoch{}.pth".format(run_name, run_name, i)), map_location=device))
+        net.load_state_dict(
+            torch.load(str("checkpoints/{}/{}_cp_epoch{}.pth".format(run_name, run_name, i)), map_location=device))
         net.to(device=device)
         test_net(net=net, device=device, experiment=None,
                  img_test_dir=Path('../data/unet/detection'),
@@ -321,11 +264,13 @@ if __name__ == '__main__':
     # Change here to adapt to your data
     net = ResNet(n_classes=100, in_channels=1)
 
-    # Resnet32 - pretrained
+    # Resnet32 - pretrained (modify the BasicDataSetRecognition in utils/data_loading.py
+    # so that the images are inputed as RGB images.
     # net = tv.models.resnet34(pretrained=True)
     # net.fc = nn.Linear(in_features=512, out_features=100)
 
-    # Incpetion v3
+    # Incpetion v3 - pretrained (modify the BasicDataSetRecognition in utils/data_loading.py
+    # images should have at least size 299x299 & should be RGB
     # net = tv.models.inception_v3(pretrained=True, transform_input=True)
     # net.fc = nn.Linear(in_features=2048, out_features=100)
 
@@ -337,7 +282,6 @@ if __name__ == '__main__':
 
     net.to(device=device)
     try:
-        # experiment = None
         experiment = train_net(net=net,
                                epochs=args.epochs,
                                batch_size=args.batch_size,
