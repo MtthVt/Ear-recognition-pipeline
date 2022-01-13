@@ -1,9 +1,19 @@
-# imagebasedbiometry2122
-Repo for assignments for Image based Biometry in Ljubljana 2021/22
+# Ear recognition pipeline (Segmentation/Detection + Recognition)
+This repository contains files to establish an ear recognition pipeline.  
+In the folders "detectors", one can find some approaches for ear detection (bounding boxes)
+and also for the segmentation task (e.g. unet_segmentation).  
+In the folder "feature_extractors", there are some approaches on the recognition task assigning
+an id of a 100 class problem to an input ear.
 
-Instructions for assignment 02:
-- Paste the dataset provided by the assignment files into the folder assignment02/data
-- Train the model via running the file [train.py](assignment02/detectors/unet_segmentation/train.py)
+## Instructions for assignment 02 / Detection-Segmentation:
+- Paste the dataset provided by the assignment files into the folder "data"
+- Train the model via running the file [train_detection.py](detectors/unet_segmentation/train_detection.py)
   - you can specify parameters either on the command line or by modifying the default parameters. Comment in/out the desired model.
   - The model performance and the final test result will be published via wandb. See the link in the output to access the resulting graphs.
-- For loading a specific model, comment in the corresponding [lines](https://github.com/matthi97/imagebasedbiometry2122/blob/7bec4d2081d8cdfe367b30d8710f1e01672381c1/assignment02/detectors/unet_segmentation/train.py#L261-L262) and execute the file.
+
+## Instructions for assignment 03 / Recognition:
+- Paste the dataset provided by the assignment files into the folder data.
+Adjust the parameters in the file [train_recognition](feature_extractors/train_recognition.py) (line 17-23) accordingly.
+- Train the model via running the file [train_recognition.py](feature_extractors/train_recognition.py)
+  - you can specify parameters either on the command line or by modifying the default parameters. Comment in/out the desired model (please keep in mind that different models need different data structures. For more information see the comments in the code).
+  - The model performance and the final test result will be published via wandb. See the link in the output to access the resulting graphs.

@@ -12,14 +12,14 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 from tqdm import tqdm
 
-from assignment02.detectors.unet_segmentation.unet_attention.networks.unet_grid_attention_2D import UNet_Attention
-from assignment02.metrics.evaluation import Evaluation
-from utils.data_loading import BasicDataset, TransformDataset
-from utils.dice_score import dice_loss, multiclass_dice_coeff
+from detectors.unet_segmentation.unet_attention.networks.unet_grid_attention_2D import UNet_Attention
+from metrics.evaluation import Evaluation
+from utils.data_loading import BasicDatasetDetection, TransformDatasetDetection
+from utils.dice_score import dice_loss
 from evaluate import evaluate
 from unet import UNet
 
-dir_img = Path('../../data/ears/train/')
+dir_img_train = Path('../../data/ears/train/')
 dir_img_test = Path('../../data/ears/test/')
 dir_mask = Path('../../data/ears/annotations/segmentation/train')
 dir_mask_test = Path('../../data/ears/annotations/segmentation/test')
@@ -33,13 +33,9 @@ def train_net(net,
               learning_rate: float = 0.001,
               val_percent: float = 0.1,
               save_checkpoint: bool = True,
-              img_scale: float = 0.5,
               amp: bool = False):
     # 1. Create dataset
-    # try:
-    #     dataset = CarvanaDataset(dir_img, dir_mask, img_scale)
-    # except (AssertionError, RuntimeError):
-    dataset = TransformDataset(dir_img, dir_mask, length=1500, scale=img_scale)
+    dataset = TransformDatasetDetection(dir_img_train, dir_mask, length=750, scale=img_scale)
 
     #### Calculation of data distribution
     # dataset = BasicDataset(dir_img_test, dir_mask_test, scale=img_scale)
@@ -70,10 +66,10 @@ def train_net(net,
     # (Initialize logging)
     experiment = wandb.init(project='U-Net', resume='allow', anonymous='must')
     experiment.config.update(dict(epochs=epochs, batch_size=batch_size, learning_rate=learning_rate,
-                                  val_percent=val_percent, save_checkpoint=save_checkpoint, img_scale=img_scale,
+                                  val_percent=val_percent, save_checkpoint=save_checkpoint,
                                   amp=amp, optimizer='ADAM', betas=betas, eps=eps,
                                   cross_entropy_weight=cross_entropy_weight, architecture="UNET",
-                                  augmentation="Histogram-eq+Transform"))
+                                  augmentation="Transform_less_noaffine"))
 
     logging.info(f'''Starting training:
         Epochs:          {epochs}
@@ -88,7 +84,6 @@ def train_net(net,
     ''')
 
     # 4. Set up the optimizer, the loss, the learning rate scheduler and the loss scaling for AMP
-    # optimizer = optim.RMSprop(net.parameters(), lr=learning_rate, weight_decay=1e-8, momentum=0.9)
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, amsgrad=True,
                            betas=betas,
                            eps=eps,
@@ -140,7 +135,7 @@ def train_net(net,
                 pbar.set_postfix(**{'loss (batch)': loss.item()})
 
                 # Evaluation round
-                division_step = (n_train // (10 * batch_size))
+                division_step = (n_train // (2 * batch_size))
                 if division_step > 0:
                     if global_step % division_step == 0:
                         histograms = {}
@@ -150,17 +145,17 @@ def train_net(net,
                             histograms['Gradients/' + tag] = wandb.Histogram(value.grad.data.cpu())
 
                         val_score = evaluate(net, val_loader, device)
-                        scheduler.step(val_score)
+                        # scheduler.step(val_score)
 
                         logging.info('Validation Dice score: {}'.format(val_score))
                         experiment.log({
                             'learning rate': optimizer.param_groups[0]['lr'],
                             'validation Dice': val_score,
-                            'images': wandb.Image(images[0].cpu()),
-                            'masks': {
-                                'true': wandb.Image(true_masks[0].float().cpu()),
-                                'pred': wandb.Image(torch.softmax(masks_pred, dim=1).argmax(dim=1)[0].float().cpu()),
-                            },
+                            # 'images': wandb.Image(images[0].cpu()),
+                            # 'masks': {
+                            #     'true': wandb.Image(true_masks[0].cpu()),
+                            #     'pred': wandb.Image(torch.softmax(masks_pred, dim=1).argmax(dim=1)[0].float().cpu()),
+                            # },
                             'step': global_step,
                             'epoch': epoch,
                             **histograms
@@ -180,7 +175,7 @@ def test_net(net, device, experiment):
     eval = Evaluation()
 
     # 1. Create dataset
-    test_set = BasicDataset(dir_img_test, dir_mask_test, 1.0)
+    test_set = BasicDatasetDetection(dir_img_test, dir_mask_test, 1.0)
 
     # 2. Create data loader
     loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
@@ -234,12 +229,11 @@ def test_net(net, device, experiment):
 
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=20, help='Number of epochs')
+    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=30, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=5, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=0.0001,
                         help='Learning rate', dest='lr')
     parser.add_argument('--load', '-f', type=str, default=False, help='Load model from a .pth file')
-    parser.add_argument('--scale', '-s', type=float, default=1.0, help='Downscaling factor of the images')
     parser.add_argument('--validation', '-v', dest='val', type=float, default=10.0,
                         help='Percent of the data that is used as validation (0-100)')
     parser.add_argument('--amp', action='store_true', default=False, help='Use mixed precision')
@@ -257,10 +251,10 @@ if __name__ == '__main__':
     # Change here to adapt to your data
     # n_channels=3 for RGB images
     # n_classes is the number of probabilities you want to get per pixel
-    # net = UNet(n_channels=3, n_classes=2, bilinear=True)
+    net = UNet(n_channels=3, n_classes=2, bilinear=True)
     # checkpoint = "checkpoints/revived-night-66_cp_epoch5.pth"
     # net.load_state_dict(torch.load(checkpoint, map_location=device))
-    net = UNet_Attention(n_channels=3, n_classes=2, bilinear=True)
+    # net = UNet_Attention(n_channels=3, n_classes=2, bilinear=True)
 
     logging.info(f'Network:\n'
                  f'\t{net.n_channels} input channels\n'
@@ -281,6 +275,12 @@ if __name__ == '__main__':
                                img_scale=args.scale,
                                val_percent=args.val / 100,
                                amp=args.amp)
+        # for i in range(20,29):
+        #     experiment = None
+        #     run_name = "rose-wildflower-76"
+        #     checkpoint = str(dir_checkpoint / '{}_cp_epoch{}.pth'.format(run_name, i))
+        #     print("Evaluate " + checkpoint)
+        #     net.load_state_dict(torch.load(checkpoint, map_location=device))
         test_net(net=net,
                  device=device,
                  experiment=experiment)

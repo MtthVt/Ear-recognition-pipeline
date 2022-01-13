@@ -7,7 +7,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from assignment02.detectors.unet_segmentation.utils.data_loading import BasicDataset
+from utils.data_loading import BasicDatasetDetection
 from metrics.evaluation import Evaluation
 
 
@@ -40,7 +40,7 @@ class EvaluateAll:
         eval = Evaluation()
 
         # 1. Create dataset
-        test_set = BasicDataset(self.images_path, self.annotations_path, 1.0)
+        test_set = BasicDatasetDetection(self.images_path, self.annotations_path, 1.0)
 
         # 2. Create data loader
         loader_args = dict(batch_size=1, num_workers=1, pin_memory=True)
